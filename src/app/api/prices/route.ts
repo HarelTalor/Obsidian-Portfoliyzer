@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import yahooFinance from "yahoo-finance2";
+import YahooFinance from "yahoo-finance2";
+
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
 export async function GET(req: NextRequest) {
   const tickers = req.nextUrl.searchParams.get("tickers");
@@ -13,13 +15,13 @@ export async function GET(req: NextRequest) {
   await Promise.all(
     symbols.map(async (symbol) => {
       try {
-        const result = await yahooFinance.quote(symbol);
+        const result = await yf.quote(symbol);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         prices[symbol] = (result as any).regularMarketPrice ?? 0;
       } catch {
         // Try with .TA suffix for Tel Aviv stocks
         try {
-          const result = await yahooFinance.quote(`${symbol}.TA`);
+          const result = await yf.quote(`${symbol}.TA`);
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           prices[symbol] = (result as any).regularMarketPrice ?? 0;
         } catch {
