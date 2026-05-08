@@ -20,22 +20,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log("[AuthContext] Initializing, current URL:", typeof window !== "undefined" ? window.location.href : "SSR");
+    
     supabase.auth.getSession().then(({ data: { session: s } }) => {
+      console.log("[AuthContext] getSession resolved:", s ? "Session found" : "No session");
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
     }).catch((err) => {
-      console.error("Error getting session:", err);
+      console.error("[AuthContext] Error getting session:", err);
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
+      console.log("[AuthContext] onAuthStateChange event:", event, "Session:", s ? "Exists" : "Null");
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
 
       if (s && typeof window !== "undefined" && window.location.hash.includes("access_token")) {
-        // Clear the ugly Supabase hash from the URL
+        console.log("[AuthContext] Clearing access_token from URL hash");
         window.history.replaceState(null, "", window.location.pathname + window.location.search);
       }
     });

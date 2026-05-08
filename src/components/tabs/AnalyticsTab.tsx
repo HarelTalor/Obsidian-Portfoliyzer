@@ -101,7 +101,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
 
       {/* SCORECARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-        <ScoreCard icon={DollarSign} iconColor="var(--accent-green)" iconBg="var(--accent-green-dim)" label="Total Portfolio Value" value={formatUSD(analysis.totalPortfolioValue)} />
+        <ScoreCard icon={DollarSign} iconColor="var(--accent-green)" iconBg="var(--accent-green-dim)" label="Total Portfolio Value" value={formatUSD(analysis.totalPortfolioValue)} sub={analysis.netDeposits > 0 ? `${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% from ${formatUSD(analysis.netDeposits)} deposited` : undefined} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
         <ScoreCard icon={analysis.totalPnL >= 0 ? TrendingUp : TrendingDown} iconColor={analysis.totalPnL >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} iconBg={analysis.totalPnL >= 0 ? "var(--accent-green-dim)" : "var(--accent-rose-dim)"} label="Total Open PnL" value={formatUSD(analysis.totalPnL)} sub={`${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% ROI`} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
         <ScoreCard icon={Wallet} iconColor="var(--accent-blue)" iconBg="var(--accent-blue-dim)" label="Cash Balance" value={formatUSD(analysis.cash)} />
         <ScoreCard icon={Activity} iconColor="var(--accent-amber)" iconBg="var(--accent-amber-dim)" label="Net Deposits" value={formatUSD(analysis.netDeposits)} />
