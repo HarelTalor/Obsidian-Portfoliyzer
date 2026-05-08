@@ -50,7 +50,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
     fetch(`/api/returns?tickers=${allTickers.join(",")}`)
       .then((r) => r.json())
       .then((d) => setAssetReturns(d))
-      .catch(() => {});
+      .catch(() => { });
   }, [allTickers.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const analysis = useMemo(() => {
@@ -101,7 +101,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
 
       {/* SCORECARDS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
-        <ScoreCard icon={DollarSign} iconColor="var(--accent-green)" iconBg="var(--accent-green-dim)" label="Total Portfolio Value" value={formatUSD(analysis.totalPortfolioValue)} sub={analysis.netDeposits > 0 ? `${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% all time ROI` : undefined} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
+        <ScoreCard icon={DollarSign} iconColor="var(--accent-green)" iconBg="var(--accent-green-dim)" label="Total Portfolio Value" value={formatUSD(analysis.totalPortfolioValue)} sub={analysis.netDeposits > 0 ? `${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% All Time ROI` : undefined} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
         <ScoreCard icon={analysis.totalPnL >= 0 ? TrendingUp : TrendingDown} iconColor={analysis.totalPnL >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} iconBg={analysis.totalPnL >= 0 ? "var(--accent-green-dim)" : "var(--accent-rose-dim)"} label="Total Open PnL" value={formatUSD(analysis.totalPnL)} sub={`${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% ROI`} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
         <ScoreCard icon={Wallet} iconColor="var(--accent-blue)" iconBg="var(--accent-blue-dim)" label="Cash Balance" value={formatUSD(analysis.cash)} />
         <ScoreCard icon={Activity} iconColor="var(--accent-amber)" iconBg="var(--accent-amber-dim)" label="Net Deposits" value={formatUSD(analysis.netDeposits)} />
@@ -128,15 +128,15 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
           <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>Profit / Loss by Asset</h3>
           <div style={{ width: "100%", height: 340 }}>
             {barData.length === 0 ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 13 }}>No holdings yet</div> : (
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={barData} layout="vertical" barCategoryGap="20%">
-                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.06)" />
-                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#5a5a72", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#f0f0f5", fontSize: 13, fontWeight: 600 }} width={70} />
-                <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 10, color: "var(--text-primary)", fontSize: 13 }} formatter={(value) => [formatUSD(value as number), "PnL"]} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                <Bar dataKey="pnl" radius={[0, 6, 6, 0]}>{barData.map((entry, i) => (<Cell key={i} fill={entry.pnl >= 0 ? "#34d399" : "#f87171"} />))}</Bar>
-              </BarChart>
-            </ResponsiveContainer>)}
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData} layout="vertical" barCategoryGap="20%">
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.06)" />
+                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#5a5a72", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                  <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#f0f0f5", fontSize: 13, fontWeight: 600 }} width={70} />
+                  <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 10, color: "var(--text-primary)", fontSize: 13 }} formatter={(value) => [formatUSD(value as number), "PnL"]} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                  <Bar dataKey="pnl" radius={[0, 6, 6, 0]}>{barData.map((entry, i) => (<Cell key={i} fill={entry.pnl >= 0 ? "#34d399" : "#f87171"} />))}</Bar>
+                </BarChart>
+              </ResponsiveContainer>)}
           </div>
         </div>
       </div>
@@ -147,27 +147,27 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
           <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Holdings Breakdown</h3>
         </div>
         {analysis.perAsset.length === 0 ? <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No holdings. Add Buy transactions in the Ledger tab.</div> : (
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "Value", "PnL ($)", "PnL (%)", "1Y Return", "CAGR"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
-          <tbody>{analysis.perAsset.map((a) => {
-            const avgCost = a.qty > 0 ? a.cost / a.qty : 0;
-            const c = a.pnl >= 0 ? "var(--accent-green)" : "var(--accent-rose)";
-            const ret = assetReturns[a.ticker];
-            const r1y = ret?.return1y;
-            const cagr = ret?.cagr;
-            return (<tr key={a.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-              <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{a.ticker}</td>
-              <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{a.qty.toFixed(4)}</td>
-              <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(avgCost)}</td>
-              <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.livePrice || 0)}</td>
-              <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.currentValue)}</td>
-              <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnl >= 0 ? "+" : ""}{formatUSD(a.pnl)}</td>
-              <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnlPct >= 0 ? "+" : ""}{a.pnlPct.toFixed(2)}%</td>
-              <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r1y !== null && r1y !== undefined ? (r1y >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{r1y !== null && r1y !== undefined ? `${r1y >= 0 ? "+" : ""}${r1y.toFixed(1)}%` : "—"}</td>
-              <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagr !== null && cagr !== undefined ? (cagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagr !== null && cagr !== undefined ? `${cagr >= 0 ? "+" : ""}${cagr.toFixed(1)}%/yr` : "—"}</td>
-            </tr>);
-          })}</tbody>
-        </table>)}
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "Value", "PnL ($)", "PnL (%)", "1Y Return", "CAGR"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
+            <tbody>{analysis.perAsset.map((a) => {
+              const avgCost = a.qty > 0 ? a.cost / a.qty : 0;
+              const c = a.pnl >= 0 ? "var(--accent-green)" : "var(--accent-rose)";
+              const ret = assetReturns[a.ticker];
+              const r1y = ret?.return1y;
+              const cagr = ret?.cagr;
+              return (<tr key={a.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{a.ticker}</td>
+                <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{a.qty.toFixed(4)}</td>
+                <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(avgCost)}</td>
+                <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.livePrice || 0)}</td>
+                <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.currentValue)}</td>
+                <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnl >= 0 ? "+" : ""}{formatUSD(a.pnl)}</td>
+                <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnlPct >= 0 ? "+" : ""}{a.pnlPct.toFixed(2)}%</td>
+                <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r1y !== null && r1y !== undefined ? (r1y >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{r1y !== null && r1y !== undefined ? `${r1y >= 0 ? "+" : ""}${r1y.toFixed(1)}%` : "—"}</td>
+                <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagr !== null && cagr !== undefined ? (cagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagr !== null && cagr !== undefined ? `${cagr >= 0 ? "+" : ""}${cagr.toFixed(1)}%/yr` : "—"}</td>
+              </tr>);
+            })}</tbody>
+          </table>)}
       </div>
     </div>
   );
