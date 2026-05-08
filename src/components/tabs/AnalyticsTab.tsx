@@ -13,6 +13,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
   const [transactions, setTransactions] = useState<{ type: string; asset_ticker: string; quantity: number; price: number }[]>([]);
   const [snapshots, setSnapshots] = useState<{ date: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
+  const [assetReturns, setAssetReturns] = useState<Record<string, { return1y: number | null; cagr: number | null }>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -42,6 +43,15 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
     return Array.from(s);
   }, [transactions]);
   const { prices: livePrices } = useLivePrices(allTickers);
+
+  // Fetch historical returns
+  useEffect(() => {
+    if (allTickers.length === 0) return;
+    fetch(`/api/returns?tickers=${allTickers.join(",")}`)
+      .then((r) => r.json())
+      .then((d) => setAssetReturns(d))
+      .catch(() => {});
+  }, [allTickers.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const analysis = useMemo(() => {
     const assets: Record<string, { qty: number; totalCost: number }> = {};
@@ -138,10 +148,13 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
         </div>
         {analysis.perAsset.length === 0 ? <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No holdings. Add Buy transactions in the Ledger tab.</div> : (
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "Value", "PnL ($)", "PnL (%)"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
+          <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "Value", "PnL ($)", "PnL (%)", "1Y Return", "CAGR"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
           <tbody>{analysis.perAsset.map((a) => {
             const avgCost = a.qty > 0 ? a.cost / a.qty : 0;
             const c = a.pnl >= 0 ? "var(--accent-green)" : "var(--accent-rose)";
+            const ret = assetReturns[a.ticker];
+            const r1y = ret?.return1y;
+            const cagr = ret?.cagr;
             return (<tr key={a.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
               <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{a.ticker}</td>
               <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{a.qty.toFixed(4)}</td>
@@ -150,6 +163,8 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
               <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.currentValue)}</td>
               <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnl >= 0 ? "+" : ""}{formatUSD(a.pnl)}</td>
               <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnlPct >= 0 ? "+" : ""}{a.pnlPct.toFixed(2)}%</td>
+              <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r1y !== null && r1y !== undefined ? (r1y >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{r1y !== null && r1y !== undefined ? `${r1y >= 0 ? "+" : ""}${r1y.toFixed(1)}%` : "—"}</td>
+              <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagr !== null && cagr !== undefined ? (cagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagr !== null && cagr !== undefined ? `${cagr >= 0 ? "+" : ""}${cagr.toFixed(1)}%/yr` : "—"}</td>
             </tr>);
           })}</tbody>
         </table>)}
