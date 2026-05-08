@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { TrendingUp, Crosshair, BookOpen, BarChart3, LogOut, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -20,14 +20,16 @@ export default function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("strategy");
 
-  if (loading) return (
+  useEffect(() => {
+    if (!loading && !user) router.push("/login");
+  }, [loading, user, router]);
+
+  if (loading || !user) return (
     <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "var(--bg-primary)" }}>
       <Loader2 size={32} style={{ color: "var(--accent-green)", animation: "spin 1s linear infinite" }} />
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
-
-  if (!user) { router.push("/login"); return null; }
 
   const userId = user.id;
   const userEmail = user.email || "";
