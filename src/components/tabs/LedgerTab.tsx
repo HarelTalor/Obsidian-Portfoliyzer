@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, ChevronDown, Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2, Bell, BellOff, Clock, Calendar } from "lucide-react";
+import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, ChevronDown, Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2, Bell, BellOff, Clock, Calendar, DollarSign, Hash } from "lucide-react";
 import type { TransactionType } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
 import { useLivePrices } from "@/lib/use-live-prices";
@@ -41,6 +41,9 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
   const [alertDay, setAlertDay] = useState(1);
   const [alertTime, setAlertTime] = useState("09:00");
   const [alertSaving, setAlertSaving] = useState(false);
+  // Buy-by-dollar toggle
+  const [buyByDollar, setBuyByDollar] = useState(false);
+  const [formDollarAmt, setFormDollarAmt] = useState<number | "">("");
 
   // Load data from Supabase
   const loadData = useCallback(async () => {
@@ -144,23 +147,44 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
   // Add transaction to Supabase
   const handleAddTransaction = async () => {
     const isCash = formType === "Deposit" || formType === "Withdrawal";
+    const isBuyOrSell = formType === "Buy" || formType === "Sell";
+
     if (!isCash && !formTicker.trim()) return;
-    if (!isCash && (formQty === "" || formQty <= 0)) return;
-    if (formPrice === "" || (typeof formPrice === "number" && formPrice <= 0)) return;
+
+    let finalQty: number;
+    let finalPrice: number;
+
+    if (isCash) {
+      if (formPrice === "" || (typeof formPrice === "number" && formPrice <= 0)) return;
+      finalQty = 0;
+      finalPrice = formPrice as number;
+    } else if (isBuyOrSell && buyByDollar) {
+      // Buy/Sell by dollar amount — compute qty from live price
+      if (formDollarAmt === "" || formDollarAmt <= 0) return;
+      const lp = livePrices[formTicker.toUpperCase()] || 0;
+      if (lp <= 0) { setError(`No live price for ${formTicker.toUpperCase()}. Enter quantity instead.`); return; }
+      finalPrice = lp;
+      finalQty = (formDollarAmt as number) / lp;
+    } else {
+      if (formQty === "" || formQty <= 0) return;
+      if (formPrice === "" || (typeof formPrice === "number" && formPrice <= 0)) return;
+      finalQty = formQty as number;
+      finalPrice = formPrice as number;
+    }
 
     const row = {
       user_id: userId,
       date: formDate,
       type: formType,
       asset_ticker: isCash ? null : formTicker.toUpperCase(),
-      quantity: isCash ? null : formQty as number,
-      price: formPrice as number,
+      quantity: isCash ? null : finalQty,
+      price: finalPrice,
     };
 
     const { error: err } = await supabase.from("transactions").insert([row]);
     if (err) { setError(err.message); return; }
 
-    setFormTicker(""); setFormQty(""); setFormPrice("");
+    setFormTicker(""); setFormQty(""); setFormPrice(""); setFormDollarAmt("");
     await loadData();
   };
 
@@ -242,10 +266,25 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
             <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 10, padding: "10px 14px", color: "var(--text-primary)", fontSize: 14, fontFamily: "var(--font-sans)", outline: "none", colorScheme: "dark" }} />
           </div>
           {!isCashOp && <div><label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ticker</label><input type="text" placeholder="VOO" value={formTicker} onChange={(e) => setFormTicker(e.target.value.toUpperCase())} style={{ width: 120 }} /></div>}
-          {!isCashOp && <div><label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quantity</label><input type="number" placeholder="0" value={formQty} min={0} step="any" onChange={(e) => setFormQty(e.target.value ? parseFloat(e.target.value) : "")} style={{ width: 110 }} /></div>}
-          <div><label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{isCashOp ? "Amount ($)" : "Price ($)"}</label><input type="number" placeholder="0.00" value={formPrice} min={0} step="any" onChange={(e) => setFormPrice(e.target.value ? parseFloat(e.target.value) : "")} style={{ width: 130 }} /></div>
+
+          {/* Buy/Sell: Toggle between qty and dollar amount */}
+          {!isCashOp && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ display: "flex", gap: 2, background: "var(--bg-secondary)", borderRadius: 8, padding: 2, border: "1px solid var(--border-subtle)" }}>
+                <button onClick={() => setBuyByDollar(false)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-sans)", background: !buyByDollar ? "var(--bg-card)" : "transparent", color: !buyByDollar ? "var(--text-primary)" : "var(--text-muted)", boxShadow: !buyByDollar ? "0 1px 4px rgba(0,0,0,0.3)" : "none" }}><Hash size={11} />QTY</button>
+                <button onClick={() => setBuyByDollar(true)} style={{ display: "flex", alignItems: "center", gap: 4, padding: "5px 10px", borderRadius: 6, border: "none", fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-sans)", background: buyByDollar ? "var(--bg-card)" : "transparent", color: buyByDollar ? "var(--text-primary)" : "var(--text-muted)", boxShadow: buyByDollar ? "0 1px 4px rgba(0,0,0,0.3)" : "none" }}><DollarSign size={11} />USD</button>
+              </div>
+            </div>
+          )}
+
+          {!isCashOp && !buyByDollar && <div><label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Quantity</label><input type="number" placeholder="0" value={formQty} min={0} step="any" onChange={(e) => setFormQty(e.target.value ? parseFloat(e.target.value) : "")} style={{ width: 110 }} /></div>}
+          {!isCashOp && buyByDollar && <div><label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Amount ($)</label><input type="number" placeholder="1000" value={formDollarAmt} min={0} step="any" onChange={(e) => setFormDollarAmt(e.target.value ? parseFloat(e.target.value) : "")} style={{ width: 130 }} /></div>}
+          {(!isCashOp && !buyByDollar || isCashOp) && <div><label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>{isCashOp ? "Amount ($)" : "Price ($)"}</label><input type="number" placeholder="0.00" value={formPrice} min={0} step="any" onChange={(e) => setFormPrice(e.target.value ? parseFloat(e.target.value) : "")} style={{ width: 130 }} /></div>}
           <button className="btn-primary" onClick={handleAddTransaction} style={{ display: "flex", alignItems: "center", gap: 6, height: 42 }}><Plus size={16} /> Add</button>
         </div>
+        {!isCashOp && buyByDollar && formTicker && livePrices[formTicker] ? (
+          <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 8 }}>Live price: <strong style={{ color: "var(--accent-green)" }}>{formatUSD(livePrices[formTicker])}</strong>{formDollarAmt ? ` → ≈${((formDollarAmt as number) / livePrices[formTicker]).toFixed(4)} shares` : ""}</p>
+        ) : null}
       </div>
 
       {/* TRANSACTION TABLE */}
@@ -326,7 +365,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
             <label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Monthly Budget</label>
             <div style={{ position: "relative" }}>
               <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: 14 }}>$</span>
-              <input type="number" value={dcaBudget} min={0} step={100} onChange={(e) => setDcaBudget(parseFloat(e.target.value) || 0)} style={{ width: "100%", paddingLeft: 28 }} />
+              <input type="number" value={dcaBudget} min={0} step={100} onChange={(e) => setDcaBudget(parseFloat(e.target.value) || 0)} onBlur={() => supabase.from("users").update({ monthly_dca_budget: dcaBudget }).eq("id", userId)} style={{ width: "100%", paddingLeft: 28 }} />
             </div>
           </div>
 
