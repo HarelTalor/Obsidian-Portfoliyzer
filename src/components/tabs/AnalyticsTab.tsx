@@ -66,10 +66,11 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       const pnl = currentValue - data.totalCost;
       return { ticker, qty: data.qty, cost: data.totalCost, currentValue, pnl, pnlPct: data.totalCost > 0 ? (pnl / data.totalCost) * 100 : 0, livePrice };
     });
-    const totalPortfolioValue = perAsset.reduce((s, a) => s + a.currentValue, 0) + cash;
+    const totalAssetValue = perAsset.reduce((s, a) => s + a.currentValue, 0);
+    const totalPortfolioValue = totalAssetValue + cash;
     const netDeposits = totalDeposits - totalWithdrawals;
-    const totalPnL = totalPortfolioValue - netDeposits;
-    return { perAsset, cash, totalPortfolioValue, totalPnL, totalROI: netDeposits > 0 ? (totalPnL / netDeposits) * 100 : 0, netDeposits };
+    const totalPnL = totalAssetValue - (netDeposits - cash); // PnL = current asset value - total cost of those assets
+    return { perAsset, cash, totalAssetValue, totalPortfolioValue, totalPnL, totalROI: netDeposits > 0 ? (totalPnL / netDeposits) * 100 : 0, netDeposits };
   }, [transactions, livePrices]);
 
   const barData = analysis.perAsset.map((a) => ({ name: a.ticker, pnl: parseFloat(a.pnl.toFixed(2)) }));

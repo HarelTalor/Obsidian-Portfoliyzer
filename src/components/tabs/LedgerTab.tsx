@@ -102,27 +102,29 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
   }, [transactions, targets]);
   const { prices: livePrices } = useLivePrices(allTickers);
 
-  // Current vs Target
+  // Current vs Target — percentages based on total asset value (excludes cash so negative cash doesn't break %)
   const portfolioAnalysis = useMemo(() => {
-    let totalValue = holdings.cash;
+    let totalAssetValue = 0;
     const assetValues: Record<string, number> = {};
     for (const [ticker, data] of Object.entries(holdings.assets)) {
       const val = data.qty * (livePrices[ticker] || 0);
       assetValues[ticker] = val;
-      totalValue += val;
+      totalAssetValue += val;
     }
     return targets.map((t) => {
       const currentValue = assetValues[t.asset_ticker] || 0;
-      const currentPct = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
+      const currentPct = totalAssetValue > 0 ? (currentValue / totalAssetValue) * 100 : 0;
       return { ticker: t.asset_ticker, targetPct: t.target_percentage, currentPct, gap: currentPct - t.target_percentage, livePrice: livePrices[t.asset_ticker] || 0, currentValue };
     });
   }, [holdings, targets, livePrices]);
 
-  const totalPortfolioValue = useMemo(() => {
-    let v = holdings.cash;
+  const totalAssetValue = useMemo(() => {
+    let v = 0;
     for (const [ticker, data] of Object.entries(holdings.assets)) v += data.qty * (livePrices[ticker] || 0);
     return v;
   }, [holdings, livePrices]);
+
+  const totalPortfolioValue = totalAssetValue + holdings.cash;
 
   // Smart DCA
   const dcaRecommendation = useMemo(() => {
@@ -284,8 +286,17 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Current vs Target</h3>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>Portfolio: <span style={{ color: "var(--accent-green)", fontWeight: 700 }}>{formatUSD(totalPortfolioValue)}</span>{" · "}Cash: <span style={{ color: "var(--accent-blue)", fontWeight: 700 }}>{formatUSD(holdings.cash)}</span></span>
+            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
+              Assets: <span style={{ color: "var(--accent-green)", fontWeight: 700 }}>{formatUSD(totalAssetValue)}</span>
+              {" · "}Cash: <span style={{ color: holdings.cash >= 0 ? "var(--accent-blue)" : "var(--accent-rose)", fontWeight: 700 }}>{formatUSD(holdings.cash)}</span>
+            </span>
           </div>
+          {holdings.cash < 0 && (
+            <div style={{ padding: "10px 20px", background: "var(--accent-amber-dim)", borderBottom: "1px solid var(--border-subtle)", display: "flex", alignItems: "center", gap: 8 }}>
+              <AlertTriangle size={14} style={{ color: "var(--accent-amber)" }} />
+              <span style={{ color: "var(--accent-amber)", fontSize: 12 }}>Cash is negative — add Deposit transactions to reflect the money you invested.</span>
+            </div>
+          )}
           {targets.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No targets set. Go to &quot;The Strategy&quot; tab to define your allocation.</div>
           ) : (
