@@ -24,12 +24,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
+    }).catch((err) => {
+      console.error("Error getting session:", err);
+      setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s);
       setUser(s?.user ?? null);
       setLoading(false);
+
+      if (s && typeof window !== "undefined" && window.location.hash.includes("access_token")) {
+        // Clear the ugly Supabase hash from the URL
+        window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      }
     });
 
     return () => subscription.unsubscribe();
