@@ -38,7 +38,7 @@ export default function Home() {
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column", background: "var(--bg-primary)" }}>
       <header className="glass" style={{ position: "sticky", top: 0, zIndex: 50, borderTop: "none", borderLeft: "none", borderRight: "none", borderRadius: 0, borderBottom: "1px solid var(--border-subtle)" }}>
-        <div style={{ maxWidth: 1400, margin: "0 auto", padding: "0 24px", display: "flex", justifyContent: "space-between", alignItems: "center", height: 64 }}>
+        <div className="header-inner">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-green-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <TrendingUp size={18} style={{ color: "var(--accent-green)" }} />
@@ -55,13 +55,13 @@ export default function Home() {
                 <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 13, fontWeight: isActive ? 600 : 500, fontFamily: "var(--font-sans)", transition: "all 0.2s ease", background: isActive ? "var(--bg-card)" : "transparent", color: isActive ? "var(--text-primary)" : "var(--text-muted)", boxShadow: isActive ? "0 2px 8px rgba(0,0,0,0.3)" : "none" }}
                   onMouseEnter={(e) => { if (!isActive) { e.currentTarget.style.color = "var(--text-secondary)"; e.currentTarget.style.background = "var(--bg-hover)"; } }}
                   onMouseLeave={(e) => { if (!isActive) { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.background = "transparent"; } }}>
-                  <Icon size={15} />{tab.label}
+                  <Icon size={15} /><span className="tab-label">{tab.label}</span>
                 </button>
               );
             })}
           </nav>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{userEmail}</span>
+            <span className="user-email">{userEmail}</span>
             <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--bg-elevated)", border: "1px solid var(--border-default)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>{initials}</span>
             </div>
@@ -72,7 +72,7 @@ export default function Home() {
           </div>
         </div>
       </header>
-      <main style={{ flex: 1, maxWidth: 1400, width: "100%", margin: "0 auto", padding: "32px 24px 64px" }}>
+      <main className="main-content">
         {activeTab === "strategy" && <StrategyTab userId={userId} />}
         {activeTab === "ledger" && <LedgerTab userId={userId} userEmail={userEmail} />}
         {activeTab === "analytics" && <AnalyticsTab userId={userId} />}

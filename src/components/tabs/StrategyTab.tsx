@@ -116,7 +116,7 @@ export default function StrategyTab({ userId }: { userId: string }) {
         </div>
       )}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 32, alignItems: "start" }}>
+      <div className="grid-two-col" style={{ gap: 32 }}>
         <div>
           {/* Allocation Bar */}
           <div className="card-elevated" style={{ padding: "16px 20px", marginBottom: 24 }}>

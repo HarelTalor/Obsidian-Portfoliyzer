@@ -182,3 +182,148 @@ input[type="number"]::placeholder {
   border-radius: 10px !important;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
 }
+
+/* ============================================
+   Responsive Grid Utilities
+   ============================================ */
+
+/* Header layout */
+.header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 64px;
+}
+
+/* Tab nav label — hidden on mobile, shown on desktop */
+.tab-label {
+  display: inline;
+}
+
+/* Scorecards: 4 cols → 2 cols on tablet → 1 col on phone */
+.grid-scorecards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+/* 2-col layout (charts, strategy): side-by-side → stacked */
+.grid-two-col {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+.grid-two-col-ledger {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Scrollable table wrapper */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Transaction form row */
+.form-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+/* Main content padding */
+.main-content {
+  flex: 1;
+  max-width: 1400px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 32px 24px 64px;
+}
+
+/* User email — hidden on mobile */
+.user-email {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* ============================================
+   Tablet (≤ 1024px)
+   ============================================ */
+@media (max-width: 1024px) {
+  .grid-scorecards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .grid-two-col,
+  .grid-two-col-ledger {
+    grid-template-columns: 1fr;
+  }
+
+  .tab-label {
+    display: none;
+  }
+
+  .header-inner {
+    padding: 0 16px;
+    height: 56px;
+  }
+
+  .main-content {
+    padding: 20px 16px 48px;
+  }
+}
+
+/* ============================================
+   Phone (≤ 640px)
+   ============================================ */
+@media (max-width: 640px) {
+  .grid-scorecards {
+    grid-template-columns: 1fr;
+  }
+
+  .header-inner {
+    padding: 0 12px;
+    height: 52px;
+    gap: 8px;
+  }
+
+  .main-content {
+    padding: 16px 12px 40px;
+  }
+
+  .form-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-row input,
+  .form-row button {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .user-email {
+    display: none;
+  }
+
+  .card {
+    border-radius: 12px;
+  }
+
+  .card-elevated {
+    border-radius: 10px;
+  }
+
+  h2 {
+    font-size: 20px !important;
+  }
+}
+

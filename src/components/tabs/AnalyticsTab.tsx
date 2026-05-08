@@ -100,7 +100,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       </div>
 
       {/* SCORECARDS */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 16 }}>
+      <div className="grid-scorecards">
         <ScoreCard icon={DollarSign} iconColor="var(--accent-green)" iconBg="var(--accent-green-dim)" label="Total Portfolio Value" value={formatUSD(analysis.totalPortfolioValue)} sub={analysis.netDeposits > 0 ? `${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% All Time ROI` : undefined} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
         <ScoreCard icon={analysis.totalPnL >= 0 ? TrendingUp : TrendingDown} iconColor={analysis.totalPnL >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} iconBg={analysis.totalPnL >= 0 ? "var(--accent-green-dim)" : "var(--accent-rose-dim)"} label="Total Open PnL" value={formatUSD(analysis.totalPnL)} sub={`${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% ROI`} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
         <ScoreCard icon={Wallet} iconColor="var(--accent-blue)" iconBg="var(--accent-blue-dim)" label="Cash Balance" value={formatUSD(analysis.cash)} />
@@ -108,7 +108,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       </div>
 
       {/* CHARTS */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 380px", gap: 24, alignItems: "start" }}>
+      <div className="grid-two-col">
         <div className="card" style={{ padding: 24 }}>
           <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>Performance Over Time</h3>
           <div style={{ width: "100%", height: 340 }}>
@@ -147,6 +147,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
           <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Holdings Breakdown</h3>
         </div>
         {analysis.perAsset.length === 0 ? <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No holdings. Add Buy transactions in the Ledger tab.</div> : (
+        <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "Value", "PnL ($)", "PnL (%)", "1Y Return", "CAGR"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
             <tbody>{analysis.perAsset.map((a) => {
@@ -167,7 +168,8 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
                 <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagr !== null && cagr !== undefined ? (cagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagr !== null && cagr !== undefined ? `${cagr >= 0 ? "+" : ""}${cagr.toFixed(1)}%/yr` : "—"}</td>
               </tr>);
             })}</tbody>
-          </table>)}
+          </table>
+        </div>)}
       </div>
     </div>
   );

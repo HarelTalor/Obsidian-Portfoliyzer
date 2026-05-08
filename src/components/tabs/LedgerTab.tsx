@@ -246,7 +246,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
       {/* TRANSACTION FORM */}
       <div className="card" style={{ padding: 24 }}>
         <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>Log Transaction</h3>
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-end", flexWrap: "wrap" }}>
+        <div className="form-row">
           <div style={{ position: "relative" }}>
             <label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Type</label>
             <button onClick={() => setShowTypeMenu(!showTypeMenu)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 10, color: selectedType.color, fontSize: 14, fontWeight: 600, cursor: "pointer", minWidth: 150, fontFamily: "var(--font-sans)" }}>
@@ -292,7 +292,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
           <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Transaction History ({transactions.length})</h3>
         </div>
-        <div style={{ maxHeight: 320, overflowY: "auto" }}>
+        <div className="table-scroll" style={{ maxHeight: 320, overflowY: "auto" }}>
           {transactions.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No transactions yet. Add one above to get started.</div>
           ) : (
@@ -321,7 +321,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
       </div>
 
       {/* SECTION B: CURRENT VS TARGET + DCA */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 400px", gap: 24, alignItems: "start" }}>
+      <div className="grid-two-col-ledger">
         <div className="card" style={{ overflow: "hidden" }}>
           <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Current vs Target</h3>
@@ -339,6 +339,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
           {targets.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No targets set. Go to &quot;The Strategy&quot; tab to define your allocation.</div>
           ) : (
+          <div className="table-scroll">
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Current %", "Target %", "Gap", "Live Price", "Value"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
             <tbody>{portfolioAnalysis.map((row) => {
@@ -352,7 +353,8 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
                 <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.currentValue)}</td>
               </tr>);
             })}</tbody>
-          </table>)}
+          </table>
+          </div>)}
         </div>
 
         {/* Smart DCA Card */}
