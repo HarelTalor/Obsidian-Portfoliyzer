@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, ChevronDown, Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2 } from "lucide-react";
+import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, ChevronDown, Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2, Bell, BellOff, Clock, Calendar } from "lucide-react";
 import type { TransactionType } from "@/lib/database.types";
-import { supabase, DEV_USER_ID } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 interface TransactionRow { id: string; date: string; type: TransactionType; asset_ticker: string; quantity: number; price: number; }
 interface TargetAllocation { asset_ticker: string; target_percentage: number; }
@@ -22,7 +22,7 @@ const FALLBACK_PRICES: Record<string, number> = { "VOO": 523.45, "QQQ": 478.12, 
 function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n); }
 function todayISO() { return new Date().toISOString().split("T")[0]; }
 
-export default function LedgerTab() {
+export default function LedgerTab({ userId, userEmail }: { userId: string; userEmail: string }) {
   const [formType, setFormType] = useState<TransactionType>("Buy");
   const [formDate, setFormDate] = useState(todayISO());
   const [formTicker, setFormTicker] = useState("");
@@ -36,22 +36,32 @@ export default function LedgerTab() {
   const [error, setError] = useState<string | null>(null);
   const [emailSending, setEmailSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  // Alert settings
+  const [alertEnabled, setAlertEnabled] = useState(false);
+  const [alertDay, setAlertDay] = useState(1);
+  const [alertTime, setAlertTime] = useState("09:00");
+  const [alertSaving, setAlertSaving] = useState(false);
 
   // Load data from Supabase
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
     const [txRes, targetRes, userRes] = await Promise.all([
-      supabase.from("transactions").select("*").eq("user_id", DEV_USER_ID).order("date", { ascending: false }),
-      supabase.from("portfolio_targets").select("*").eq("user_id", DEV_USER_ID),
-      supabase.from("users").select("*").eq("id", DEV_USER_ID).single(),
+      supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: false }),
+      supabase.from("portfolio_targets").select("*").eq("user_id", userId),
+      supabase.from("users").select("*").eq("id", userId).single(),
     ]);
     if (txRes.error) setError(txRes.error.message);
     if (txRes.data) setTransactions(txRes.data.map((d) => ({ id: d.id, date: d.date, type: d.type as TransactionType, asset_ticker: d.asset_ticker || "", quantity: Number(d.quantity) || 0, price: Number(d.price) || 0 })));
     if (targetRes.data) setTargets(targetRes.data.map((d) => ({ asset_ticker: d.asset_ticker, target_percentage: Number(d.target_percentage) })));
-    if (userRes.data) setDcaBudget(Number(userRes.data.monthly_dca_budget) || 1000);
+    if (userRes.data) {
+      setDcaBudget(Number(userRes.data.monthly_dca_budget) || 1000);
+      setAlertEnabled(userRes.data.alert_enabled ?? false);
+      setAlertDay(userRes.data.alert_day ?? 1);
+      setAlertTime(userRes.data.alert_time ?? "09:00");
+    }
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -128,7 +138,7 @@ export default function LedgerTab() {
     if (formPrice === "" || (typeof formPrice === "number" && formPrice <= 0)) return;
 
     const row = {
-      user_id: DEV_USER_ID,
+      user_id: userId,
       date: formDate,
       type: formType,
       asset_ticker: isCash ? null : formTicker.toUpperCase(),
@@ -149,20 +159,29 @@ export default function LedgerTab() {
     setTransactions((p) => p.filter((t) => t.id !== id));
   };
 
+  // Save alert settings
+  const saveAlertSettings = async (enabled: boolean, day: number, time: string) => {
+    setAlertSaving(true);
+    await supabase.from("users").update({ alert_enabled: enabled, alert_day: day, alert_time: time }).eq("id", userId);
+    setAlertSaving(false);
+  };
+
   // Send DCA email via Resend
   const sendDCAEmail = async () => {
     if (dcaRecommendation.assets.length === 0) return;
     setEmailSending(true);
-    const assetLines = dcaRecommendation.assets.map((r) => `<li><strong>${r.ticker}</strong>: ${formatUSD(r.allocation)} (≈${r.shares.toFixed(4)} shares @ ${formatUSD(r.price)})</li>`).join("");
+    const actionLines = dcaRecommendation.assets.map((r) =>
+      `<tr><td style="padding:16px 20px;border-bottom:1px solid #1e293b"><span style="color:#34d399;font-size:18px;font-weight:800">►</span> <strong style="color:#f0f0f5;font-size:15px">BUY ${formatUSD(r.allocation)} of ${r.ticker}</strong><br/><span style="color:#8b8ba7;font-size:12px">≈ ${r.shares.toFixed(4)} shares @ ${formatUSD(r.price)} · Gap: ${r.gapPct.toFixed(1)}%</span></td></tr>`
+    ).join("");
+    const strategyNote = dcaRecommendation.assets.length === 1
+      ? `${dcaRecommendation.assets[0].ticker} is currently the furthest from your target allocation. Concentrating your entire monthly budget into this single asset is the most cost-effective way to close your portfolio gap without triggering multiple transaction fees.`
+      : `These ${dcaRecommendation.assets.length} assets are the furthest below target. Splitting across only 2 assets minimizes commission fees while efficiently closing the largest gaps.`;
+    const html = `<div style="background:#0a0a0f;padding:40px 0;font-family:'Inter',system-ui,sans-serif"><div style="max-width:560px;margin:0 auto;background:#12121a;border-radius:16px;border:1px solid #1e293b;overflow:hidden"><div style="padding:32px 32px 24px;border-bottom:1px solid #1e293b;text-align:center"><div style="display:inline-block;background:rgba(52,211,153,0.1);border-radius:12px;padding:10px;margin-bottom:16px"><span style="color:#34d399;font-size:24px">📊</span></div><h1 style="color:#f0f0f5;font-size:22px;font-weight:800;margin:0 0 4px">Obsidian Portfoliyzer</h1><p style="color:#8b8ba7;font-size:13px;margin:0">Monthly DCA Action Plan</p></div><div style="padding:28px 32px"><p style="color:#c8c8d8;font-size:14px;line-height:1.6;margin:0 0 24px">Hello,<br/><br/>It is your scheduled DCA deployment day. Your predefined monthly investment budget of <strong style="color:#34d399">${formatUSD(dcaBudget)}</strong> is ready to be allocated.</p><div style="background:#0a0a0f;border-radius:12px;border:1px solid #1e293b;overflow:hidden;margin-bottom:24px"><div style="padding:12px 20px;border-bottom:1px solid #1e293b"><span style="color:#8b8ba7;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Action Plan</span></div><table style="width:100%;border-collapse:collapse">${actionLines}</table></div><div style="background:rgba(251,191,36,0.08);border-radius:10px;padding:16px 20px;margin-bottom:24px;border-left:3px solid #fbbf24"><p style="color:#fbbf24;font-size:12px;font-weight:600;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.03em">Strategy Note</p><p style="color:#c8c8d8;font-size:13px;line-height:1.5;margin:0">${strategyNote}</p></div><div style="background:#0a0a0f;border-radius:10px;padding:16px 20px;margin-bottom:24px"><span style="color:#8b8ba7;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Portfolio Snapshot</span><p style="color:#f0f0f5;font-size:22px;font-weight:800;margin:8px 0 0">${formatUSD(totalPortfolioValue)}</p></div><p style="color:#5a5a72;font-size:12px;text-align:center;margin:0">Once executed, log in to Obsidian Portfoliyzer to record this transaction.</p></div></div></div>`;
     try {
       const res = await fetch("/api/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: "dev@portfoliyzer.local",
-          subject: `🎯 DCA Alert: Invest ${formatUSD(dcaBudget)} this month`,
-          html: `<h2>It's DCA Time!</h2><p>Based on your target allocation, the most cost-effective move to minimize commission fees this month is:</p><ul>${assetLines}</ul><p>Total budget: <strong>${formatUSD(dcaBudget)}</strong></p><p style="color:#666;font-size:12px">— Obsidian Portfoliyzer</p>`,
-        }),
+        body: JSON.stringify({ to: userEmail, subject: "Obsidian Portfoliyzer: Your Monthly DCA Action Plan", html }),
       });
       if (res.ok) { setEmailSent(true); setTimeout(() => setEmailSent(false), 3000); }
       else { const d = await res.json(); setError(d.error || "Email failed"); }
@@ -318,6 +337,38 @@ export default function LedgerTab() {
                 {emailSending ? <Loader2 size={14} style={{ animation: "spin 0.6s linear infinite" }} /> : emailSent ? <CheckCircle2 size={14} style={{ color: "var(--accent-green)" }} /> : <Mail size={14} />}
                 {emailSent ? "Email Sent!" : "Email DCA Summary"}
               </button>
+
+              {/* Alert Schedule Settings */}
+              <div style={{ borderTop: "1px solid var(--border-subtle)", marginTop: 12, paddingTop: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {alertEnabled ? <Bell size={14} style={{ color: "var(--accent-green)" }} /> : <BellOff size={14} style={{ color: "var(--text-muted)" }} />}
+                    <span style={{ color: "var(--text-secondary)", fontSize: 13, fontWeight: 600 }}>Monthly Alert</span>
+                  </div>
+                  <button onClick={() => { const v = !alertEnabled; setAlertEnabled(v); saveAlertSettings(v, alertDay, alertTime); }}
+                    style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", background: alertEnabled ? "var(--accent-green)" : "var(--bg-secondary)" }}>
+                    <div style={{ width: 18, height: 18, borderRadius: 9, background: "#fff", position: "absolute", top: 3, transition: "left 0.2s", left: alertEnabled ? 23 : 3 }} />
+                  </button>
+                </div>
+                {alertEnabled && (
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-muted)", fontSize: 10, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}><Calendar size={10} />Day</label>
+                      <select value={alertDay} onChange={(e) => { const d = parseInt(e.target.value); setAlertDay(d); saveAlertSettings(alertEnabled, d, alertTime); }}
+                        style={{ width: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-sans)", outline: "none", appearance: "auto" as const }}>
+                        {Array.from({ length: 28 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-muted)", fontSize: 10, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}><Clock size={10} />Time</label>
+                      <input type="time" value={alertTime} onChange={(e) => { setAlertTime(e.target.value); saveAlertSettings(alertEnabled, alertDay, e.target.value); }}
+                        style={{ width: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-sans)", outline: "none", colorScheme: "dark" }} />
+                    </div>
+                    {alertSaving && <Loader2 size={14} style={{ color: "var(--accent-green)", animation: "spin 0.6s linear infinite", marginBottom: 10 }} />}
+                  </div>
+                )}
+                {alertEnabled && <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 8 }}>Email will be sent to <strong style={{ color: "var(--text-secondary)" }}>{userEmail}</strong> on day {alertDay} at {alertTime}</p>}
+              </div>
               <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
           )}

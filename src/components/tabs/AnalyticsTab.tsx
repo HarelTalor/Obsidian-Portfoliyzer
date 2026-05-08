@@ -3,13 +3,13 @@
 import { useMemo, useState, useEffect, useCallback } from "react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { DollarSign, TrendingUp, TrendingDown, Wallet, Activity, Loader2 } from "lucide-react";
-import { supabase, DEV_USER_ID } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 import type { TransactionType } from "@/lib/database.types";
 
 const FALLBACK_PRICES: Record<string, number> = { "VOO": 523.45, "QQQ": 478.12, "BTC-USD": 98250.00, "GLD": 238.90 };
 function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n); }
 
-export default function AnalyticsTab() {
+export default function AnalyticsTab({ userId }: { userId: string }) {
   const [transactions, setTransactions] = useState<{ type: string; asset_ticker: string; quantity: number; price: number }[]>([]);
   const [snapshots, setSnapshots] = useState<{ date: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,8 +17,8 @@ export default function AnalyticsTab() {
   const loadData = useCallback(async () => {
     setLoading(true);
     const [txRes, snapRes] = await Promise.all([
-      supabase.from("transactions").select("*").eq("user_id", DEV_USER_ID).order("date"),
-      supabase.from("daily_snapshots").select("*").eq("user_id", DEV_USER_ID).order("date"),
+      supabase.from("transactions").select("*").eq("user_id", userId).order("date"),
+      supabase.from("daily_snapshots").select("*").eq("user_id", userId).order("date"),
     ]);
     if (txRes.data) setTransactions(txRes.data.map((d) => ({ type: d.type as TransactionType, asset_ticker: d.asset_ticker || "", quantity: Number(d.quantity) || 0, price: Number(d.price) || 0 })));
     if (snapRes.data && snapRes.data.length > 0) {

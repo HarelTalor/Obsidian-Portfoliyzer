@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Plus, Trash2, Save, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
-import { supabase, DEV_USER_ID } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 interface TargetRow {
   id: string;
@@ -17,7 +17,7 @@ const CHART_COLORS = [
 ];
 const UNALLOCATED_COLOR = "#1c1c28";
 
-export default function StrategyTab() {
+export default function StrategyTab({ userId }: { userId: string }) {
   const [targets, setTargets] = useState<TargetRow[]>([]);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -31,7 +31,7 @@ export default function StrategyTab() {
     const { data, error: err } = await supabase
       .from("portfolio_targets")
       .select("*")
-      .eq("user_id", DEV_USER_ID)
+      .eq("user_id", userId)
       .order("created_at", { ascending: true });
 
     if (err) {
@@ -74,11 +74,11 @@ export default function StrategyTab() {
     setError(null);
 
     // Delete existing targets for this user, then insert fresh
-    const { error: delErr } = await supabase.from("portfolio_targets").delete().eq("user_id", DEV_USER_ID);
+    const { error: delErr } = await supabase.from("portfolio_targets").delete().eq("user_id", userId);
     if (delErr) { setError(delErr.message); setSaving(false); return; }
 
     const rows = targets.map((t) => ({
-      user_id: DEV_USER_ID,
+      user_id: userId,
       asset_ticker: t.asset_ticker.toUpperCase(),
       target_percentage: t.target_percentage,
     }));
