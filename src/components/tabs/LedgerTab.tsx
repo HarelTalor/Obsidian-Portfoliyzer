@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, ChevronDown, Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2, Bell, BellOff, Clock, Calendar } from "lucide-react";
 import type { TransactionType } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
+import { useLivePrices } from "@/lib/use-live-prices";
 
 interface TransactionRow { id: string; date: string; type: TransactionType; asset_ticker: string; quantity: number; price: number; }
 interface TargetAllocation { asset_ticker: string; target_percentage: number; }
@@ -16,8 +17,7 @@ const TX_TYPES: { value: TransactionType; label: string; icon: typeof Plus; colo
   { value: "Dividend", label: "Dividend", icon: Coins, color: "var(--accent-green)" },
 ];
 
-// Placeholder prices until Yahoo Finance is wired
-const FALLBACK_PRICES: Record<string, number> = { "VOO": 523.45, "QQQ": 478.12, "BTC-USD": 98250.00, "GLD": 238.90 };
+
 
 function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n); }
 function todayISO() { return new Date().toISOString().split("T")[0]; }
@@ -93,27 +93,36 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
     return { assets: h, cash };
   }, [transactions]);
 
+  // Live prices from Yahoo Finance
+  const allTickers = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach((tx) => { if (tx.asset_ticker) set.add(tx.asset_ticker); });
+    targets.forEach((t) => set.add(t.asset_ticker));
+    return Array.from(set);
+  }, [transactions, targets]);
+  const { prices: livePrices } = useLivePrices(allTickers);
+
   // Current vs Target
   const portfolioAnalysis = useMemo(() => {
     let totalValue = holdings.cash;
     const assetValues: Record<string, number> = {};
     for (const [ticker, data] of Object.entries(holdings.assets)) {
-      const val = data.qty * (FALLBACK_PRICES[ticker] || 0);
+      const val = data.qty * (livePrices[ticker] || 0);
       assetValues[ticker] = val;
       totalValue += val;
     }
     return targets.map((t) => {
       const currentValue = assetValues[t.asset_ticker] || 0;
       const currentPct = totalValue > 0 ? (currentValue / totalValue) * 100 : 0;
-      return { ticker: t.asset_ticker, targetPct: t.target_percentage, currentPct, gap: currentPct - t.target_percentage, livePrice: FALLBACK_PRICES[t.asset_ticker] || 0, currentValue };
+      return { ticker: t.asset_ticker, targetPct: t.target_percentage, currentPct, gap: currentPct - t.target_percentage, livePrice: livePrices[t.asset_ticker] || 0, currentValue };
     });
-  }, [holdings, targets]);
+  }, [holdings, targets, livePrices]);
 
   const totalPortfolioValue = useMemo(() => {
     let v = holdings.cash;
-    for (const [ticker, data] of Object.entries(holdings.assets)) v += data.qty * (FALLBACK_PRICES[ticker] || 0);
+    for (const [ticker, data] of Object.entries(holdings.assets)) v += data.qty * (livePrices[ticker] || 0);
     return v;
-  }, [holdings]);
+  }, [holdings, livePrices]);
 
   // Smart DCA
   const dcaRecommendation = useMemo(() => {

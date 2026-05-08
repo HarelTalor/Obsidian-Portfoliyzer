@@ -4,9 +4,9 @@ import { useMemo, useState, useEffect, useCallback } from "react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { DollarSign, TrendingUp, TrendingDown, Wallet, Activity, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { useLivePrices } from "@/lib/use-live-prices";
 import type { TransactionType } from "@/lib/database.types";
 
-const FALLBACK_PRICES: Record<string, number> = { "VOO": 523.45, "QQQ": 478.12, "BTC-USD": 98250.00, "GLD": 238.90 };
 function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n); }
 
 export default function AnalyticsTab({ userId }: { userId: string }) {
@@ -31,9 +31,17 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       ]);
     }
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Live prices
+  const allTickers = useMemo(() => {
+    const s = new Set<string>();
+    transactions.forEach((t) => { if (t.asset_ticker) s.add(t.asset_ticker); });
+    return Array.from(s);
+  }, [transactions]);
+  const { prices: livePrices } = useLivePrices(allTickers);
 
   const analysis = useMemo(() => {
     const assets: Record<string, { qty: number; totalCost: number }> = {};
@@ -53,16 +61,16 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       }
     }
     const perAsset = Object.entries(assets).map(([ticker, data]) => {
-      const livePrice = FALLBACK_PRICES[ticker] || 0;
+      const livePrice = livePrices[ticker] || 0;
       const currentValue = data.qty * livePrice;
       const pnl = currentValue - data.totalCost;
-      return { ticker, qty: data.qty, cost: data.totalCost, currentValue, pnl, pnlPct: data.totalCost > 0 ? (pnl / data.totalCost) * 100 : 0 };
+      return { ticker, qty: data.qty, cost: data.totalCost, currentValue, pnl, pnlPct: data.totalCost > 0 ? (pnl / data.totalCost) * 100 : 0, livePrice };
     });
     const totalPortfolioValue = perAsset.reduce((s, a) => s + a.currentValue, 0) + cash;
     const netDeposits = totalDeposits - totalWithdrawals;
     const totalPnL = totalPortfolioValue - netDeposits;
     return { perAsset, cash, totalPortfolioValue, totalPnL, totalROI: netDeposits > 0 ? (totalPnL / netDeposits) * 100 : 0, netDeposits };
-  }, [transactions]);
+  }, [transactions, livePrices]);
 
   const barData = analysis.perAsset.map((a) => ({ name: a.ticker, pnl: parseFloat(a.pnl.toFixed(2)) }));
 
@@ -137,7 +145,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
               <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{a.ticker}</td>
               <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{a.qty.toFixed(4)}</td>
               <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(avgCost)}</td>
-              <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(FALLBACK_PRICES[a.ticker] || 0)}</td>
+              <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.livePrice || 0)}</td>
               <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.currentValue)}</td>
               <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnl >= 0 ? "+" : ""}{formatUSD(a.pnl)}</td>
               <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnlPct >= 0 ? "+" : ""}{a.pnlPct.toFixed(2)}%</td>
