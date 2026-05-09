@@ -2,16 +2,18 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { TrendingUp, Crosshair, BookOpen, BarChart3, LogOut, Loader2 } from "lucide-react";
+import { TrendingUp, Crosshair, BookOpen, BarChart3, Zap, LogOut, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import StrategyTab from "@/components/tabs/StrategyTab";
 import LedgerTab from "@/components/tabs/LedgerTab";
+import DCATab from "@/components/tabs/DCATab";
 import AnalyticsTab from "@/components/tabs/AnalyticsTab";
 
 const TABS = [
   { id: "strategy", label: "The Strategy", icon: Crosshair },
-  { id: "ledger", label: "Ledger & Action Center", icon: BookOpen },
-  { id: "analytics", label: "Analytics & Stats", icon: BarChart3 },
+  { id: "ledger", label: "Ledger", icon: BookOpen },
+  { id: "dca", label: "Smart DCA", icon: Zap },
+  { id: "analytics", label: "Analytics", icon: BarChart3 },
 ] as const;
 type TabId = (typeof TABS)[number]["id"];
 
@@ -43,7 +45,7 @@ export default function Home() {
             <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-green-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <TrendingUp size={18} style={{ color: "var(--accent-green)" }} />
             </div>
-            <span style={{ fontWeight: 700, fontSize: 18, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+            <span className="brand-text" style={{ fontWeight: 700, fontSize: 18, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
               Obsidian <span style={{ color: "var(--accent-green)" }}>Portfoliyzer</span>
             </span>
           </div>
@@ -74,7 +76,8 @@ export default function Home() {
       </header>
       <main className="main-content">
         {activeTab === "strategy" && <StrategyTab userId={userId} />}
-        {activeTab === "ledger" && <LedgerTab userId={userId} userEmail={userEmail} />}
+        {activeTab === "ledger" && <LedgerTab userId={userId} />}
+        {activeTab === "dca" && <DCATab userId={userId} userEmail={userEmail} />}
         {activeTab === "analytics" && <AnalyticsTab userId={userId} />}
       </main>
     </div>

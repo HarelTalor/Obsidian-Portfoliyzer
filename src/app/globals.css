@@ -225,6 +225,13 @@ input[type="number"]::placeholder {
   align-items: start;
 }
 
+.grid-two-col-dca {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
 /* Scrollable table wrapper */
 .table-scroll {
   overflow-x: auto;
@@ -263,7 +270,8 @@ input[type="number"]::placeholder {
   }
 
   .grid-two-col,
-  .grid-two-col-ledger {
+  .grid-two-col-ledger,
+  .grid-two-col-dca {
     grid-template-columns: 1fr;
   }
 
@@ -326,6 +334,15 @@ input[type="number"]::placeholder {
     font-size: 20px !important;
   }
 
+  .brand-text {
+    display: none;
+  }
+
+  /* Taller transaction history on mobile */
+  .tx-history-scroll {
+    max-height: 520px !important;
+  }
+
   /* ---- Strategy Tab: Stacked input rows ---- */
   .strategy-table-mobile {
     display: flex !important;
@@ -382,15 +399,16 @@ input[type="number"]::placeholder {
 
   .mobile-table tr {
     position: relative;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     border: 1px solid var(--border-subtle);
     border-radius: 14px;
-    padding: 12px;
+    padding: 14px 14px 10px;
     background: var(--bg-secondary);
     border-left: 3px solid var(--accent-green);
     display: grid !important;
     grid-template-columns: 1fr 1fr;
-    gap: 0 16px;
+    gap: 2px 16px;
+    transition: border-color 0.2s ease;
   }
 
   .mobile-table tr:last-child {
@@ -421,14 +439,16 @@ input[type="number"]::placeholder {
 
   .mobile-table td {
     border: none !important;
-    padding: 6px 0 !important;
+    padding: 5px 0 !important;
     text-align: right;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     justify-content: flex-start;
     font-size: 13px;
-    line-height: 1.2;
+    line-height: 1.3;
+    min-width: 0;
+    overflow: hidden;
   }
 
   .mobile-table td::before {
