@@ -31,8 +31,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const today = new Date();
-  const dayOfMonth = today.getDate();
+  const now = new Date();
+  const dayOfMonth = now.getUTCDate();
+  const currentHour = now.getUTCHours();
+  const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
 
   // Find all users whose alert_day matches today and alerts are enabled
   const { data: users, error: userErr } = await supabase
@@ -42,12 +44,25 @@ export async function GET(req: NextRequest) {
     .eq("alert_day", dayOfMonth);
 
   if (userErr || !users || users.length === 0) {
-    return NextResponse.json({ message: "No alerts to send today", day: dayOfMonth });
+    return NextResponse.json({ message: "No alerts to send today", day: dayOfMonth, hour: currentHour });
+  }
+
+  // Filter by alert_time hour match and skip already-sent this month
+  const eligibleUsers = users.filter((u) => {
+    // Check if already sent this month
+    if (u.last_alert_sent === currentMonth) return false;
+    // Check if the hour matches (alert_time is "HH:MM")
+    const alertHour = parseInt((u.alert_time || "09:00").split(":")[0], 10);
+    return alertHour === currentHour;
+  });
+
+  if (eligibleUsers.length === 0) {
+    return NextResponse.json({ message: "No alerts due this hour", day: dayOfMonth, hour: currentHour, checked: users.length });
   }
 
   const results: { userId: string; status: string }[] = [];
 
-  for (const user of users) {
+  for (const user of eligibleUsers) {
     try {
       const userId = user.id;
       const email = user.email;
@@ -57,7 +72,7 @@ export async function GET(req: NextRequest) {
       if (dcaBudget > 0) {
         await supabase.from("transactions").insert([{
           user_id: userId,
-          date: today.toISOString().split("T")[0],
+          date: now.toISOString().split("T")[0],
           type: "Deposit",
           asset_ticker: null,
           quantity: null,
@@ -217,6 +232,11 @@ export async function GET(req: NextRequest) {
       });
 
       results.push({ userId, status: emailErr ? `email error: ${emailErr.message}` : "sent" });
+
+      // Mark this month as sent to prevent duplicates
+      if (!emailErr) {
+        await supabase.from("users").update({ last_alert_sent: currentMonth }).eq("id", userId);
+      }
 
     } catch (err) {
       results.push({ userId: user.id, status: `error: ${err instanceof Error ? err.message : "unknown"}` });
