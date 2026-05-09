@@ -42,7 +42,7 @@ export default function Home() {
       <header className="glass" style={{ position: "sticky", top: 0, zIndex: 50, borderTop: "none", borderLeft: "none", borderRight: "none", borderRadius: 0, borderBottom: "1px solid var(--border-subtle)" }}>
         <div className="header-inner">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-green-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <div style={{ width: 34, height: 34, borderRadius: "50%", background: "var(--accent-green-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               <TrendingUp size={18} style={{ color: "var(--accent-green)" }} />
             </div>
             <span className="brand-text" style={{ fontWeight: 700, fontSize: 18, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>

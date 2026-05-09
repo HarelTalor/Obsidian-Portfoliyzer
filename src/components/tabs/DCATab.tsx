@@ -187,6 +187,21 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
       <div className="grid-two-col-dca">
         {/* Left column: Settings */}
         <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* Portfolio Snapshot */}
+          <div className="card" style={{ padding: 24 }}>
+            <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>Portfolio Snapshot</h3>
+            <div style={{ display: "flex", gap: 16 }}>
+              <div style={{ flex: 1, padding: 16, background: "var(--bg-secondary)", borderRadius: 12, borderLeft: "3px solid var(--accent-green)" }}>
+                <div style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Total Value</div>
+                <div style={{ color: "var(--text-primary)", fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{formatUSD(totalPortfolioValue)}</div>
+              </div>
+              <div style={{ flex: 1, padding: 16, background: "var(--bg-secondary)", borderRadius: 12, borderLeft: `3px solid ${holdings.cash >= 0 ? "var(--accent-blue)" : "var(--accent-rose)"}` }}>
+                <div style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Cash Available</div>
+                <div style={{ color: holdings.cash >= 0 ? "var(--accent-blue)" : "var(--accent-rose)", fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{formatUSD(holdings.cash)}</div>
+              </div>
+            </div>
+          </div>
+
           {/* DCA Settings Box */}
           <div className="card" style={{ padding: 24 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
@@ -239,21 +254,6 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
                 </div>
               )}
               {alertEnabled && <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 8 }}>Email will be sent to <strong style={{ color: "var(--text-secondary)" }}>{userEmail}</strong> on day {alertDay} at {alertTime}</p>}
-            </div>
-          </div>
-
-          {/* Portfolio Snapshot */}
-          <div className="card" style={{ padding: 24 }}>
-            <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 16 }}>Portfolio Snapshot</h3>
-            <div style={{ display: "flex", gap: 16 }}>
-              <div style={{ flex: 1, padding: 16, background: "var(--bg-secondary)", borderRadius: 12, borderLeft: "3px solid var(--accent-green)" }}>
-                <div style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Total Value</div>
-                <div style={{ color: "var(--text-primary)", fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{formatUSD(totalPortfolioValue)}</div>
-              </div>
-              <div style={{ flex: 1, padding: 16, background: "var(--bg-secondary)", borderRadius: 12, borderLeft: `3px solid ${holdings.cash >= 0 ? "var(--accent-blue)" : "var(--accent-rose)"}` }}>
-                <div style={{ color: "var(--text-muted)", fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>Cash Available</div>
-                <div style={{ color: holdings.cash >= 0 ? "var(--accent-blue)" : "var(--accent-rose)", fontSize: 20, fontWeight: 800, fontVariantNumeric: "tabular-nums" }}>{formatUSD(holdings.cash)}</div>
-              </div>
             </div>
           </div>
         </div>

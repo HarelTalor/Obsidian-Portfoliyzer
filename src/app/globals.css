@@ -360,7 +360,6 @@ input[type="number"]::placeholder {
     background: var(--bg-secondary);
     border: 1px solid var(--border-subtle);
     border-radius: 12px;
-    border-left: 3px solid var(--accent-green);
     grid-template-columns: none !important;
   }
 
@@ -404,11 +403,14 @@ input[type="number"]::placeholder {
     border-radius: 14px;
     padding: 14px 14px 10px;
     background: var(--bg-secondary);
-    border-left: 3px solid var(--accent-green);
     display: grid !important;
     grid-template-columns: 1fr 1fr;
     gap: 2px 16px;
     transition: border-color 0.2s ease;
+  }
+
+  .hide-on-mobile {
+    display: none !important;
   }
 
   .mobile-table tr:last-child {

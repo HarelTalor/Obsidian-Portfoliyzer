@@ -249,9 +249,9 @@ export default function LedgerTab({ userId }: { userId: string }) {
                   <tr key={tx.id} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <td data-label="Date" style={{ padding: "10px 16px", color: "var(--text-secondary)" }}>{tx.date}</td>
                     <td data-label="Type" style={{ padding: "10px 16px" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: typeInfo.color, fontWeight: 600 }}><Icon size={14} /> {tx.type}</span></td>
-                    <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{tx.asset_ticker || "—"}</td>
-                    <td data-label="Qty" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{isCash ? "—" : tx.quantity}</td>
-                    <td data-label="Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(tx.price)}</td>
+                    <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }} className={isCash ? "hide-on-mobile" : ""}>{tx.asset_ticker || "—"}</td>
+                    <td data-label="Qty" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }} className={isCash ? "hide-on-mobile" : ""}>{isCash ? "—" : tx.quantity}</td>
+                    <td data-label="Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }} className={isCash ? "hide-on-mobile" : ""}>{formatUSD(tx.price)}</td>
                     <td data-label="Total" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(total)}</td>
                     <td data-label="Action" style={{ padding: "10px 16px" }}><button onClick={() => removeTransaction(tx.id)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, borderRadius: 6 }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-rose)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}><Trash2 size={14} /></button></td>
                   </tr>);
