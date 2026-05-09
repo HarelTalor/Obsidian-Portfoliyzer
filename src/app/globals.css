@@ -443,7 +443,11 @@ input[type="number"]::placeholder {
 
   /* Right-column cells: right-align */
   .mobile-table td[data-label="Target %"],
-  .mobile-table td[data-label="Live Price"] {
+  .mobile-table td[data-label="Target $"],
+  .mobile-table td[data-label="Avg Cost"],
+  .mobile-table td[data-label="Live Price"],
+  .mobile-table td[data-label="PnL ($)"],
+  .mobile-table td[data-label="All-Time CAGR"] {
     align-items: flex-end !important;
   }
 
