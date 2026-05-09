@@ -288,7 +288,7 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", background: "var(--accent-green-dim)", borderRadius: 10 }}>
                 <CheckCircle2 size={14} style={{ color: "var(--accent-green)" }} />
-                <span style={{ color: "var(--accent-green)", fontSize: 12, fontWeight: 500 }}>Strategy applied: Allocating to {dcaRecommendation.assets.length === 1 ? "1 asset" : "2 assets"} to optimize fees.</span>
+                <span style={{ color: "var(--accent-green)", fontSize: 12, fontWeight: 500 }}>Allocating to {dcaRecommendation.assets.length === 1 ? "1 asset" : "2 assets"} to optimize fees.</span>
               </div>
               {dcaRecommendation.assets.map((rec) => (
                 <div key={rec.ticker} className="card-elevated" style={{ padding: 16 }}>

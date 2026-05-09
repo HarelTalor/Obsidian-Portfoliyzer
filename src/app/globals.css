@@ -398,15 +398,15 @@ input[type="number"]::placeholder {
 
   .mobile-table tr {
     position: relative;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     border: 1px solid var(--border-subtle);
-    border-radius: 14px;
-    padding: 14px 14px 10px;
+    border-radius: 12px;
+    padding: 12px 14px;
     background: var(--bg-secondary);
     display: grid !important;
     grid-template-columns: 1fr 1fr;
-    gap: 2px 16px;
-    transition: border-color 0.2s ease;
+    gap: 4px 12px;
+    align-items: center;
   }
 
   .hide-on-mobile {
@@ -417,20 +417,58 @@ input[type="number"]::placeholder {
     margin-bottom: 0;
   }
 
-  /* Hero field (Asset/Date) spans full width at top */
+  /* Base cell */
+  .mobile-table td {
+    border: none !important;
+    padding: 2px 0 !important;
+    font-size: 13px;
+    line-height: 1.4;
+    min-width: 0;
+    overflow: hidden;
+    display: flex !important;
+    align-items: center;
+  }
+
+  /* Small uppercase labels */
+  .mobile-table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 9px;
+    letter-spacing: 0.06em;
+    margin-right: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ================================================
+     Portfolio table (Asset hero first-child)
+     ================================================ */
   .mobile-table td:first-child {
     grid-column: 1 / -1;
-    padding: 0 0 10px 0 !important;
+    padding: 0 0 8px 0 !important;
     border-bottom: 1px solid var(--border-subtle) !important;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
     font-size: 15px !important;
     font-weight: 700 !important;
     color: var(--text-primary) !important;
-    text-align: left !important;
-    display: block !important;
   }
 
-  /* Summary field (Total/Value) spans full width at bottom if marked */
+  .mobile-table td:first-child::before {
+    display: none;
+  }
+
+  .mobile-table td[data-label="Value"],
+  .mobile-table td[data-label="Live Price"] {
+    justify-content: flex-end !important;
+  }
+
+  .mobile-table td[data-label="Value"] {
+    font-weight: 600 !important;
+    color: var(--text-primary) !important;
+  }
+
+  /* Summary field spans full width if marked */
   .mobile-table td[data-full="true"] {
     grid-column: 1 / -1;
     border-top: 1px solid var(--border-subtle) !important;
@@ -439,55 +477,11 @@ input[type="number"]::placeholder {
     font-weight: 700 !important;
   }
 
-  .mobile-table td {
-    border: none !important;
-    padding: 5px 0 !important;
-    text-align: right;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    justify-content: flex-start;
-    font-size: 13px;
-    line-height: 1.3;
-    min-width: 0;
-    overflow: hidden;
-  }
-
-  .mobile-table td[data-label="Date"] {
-    background: var(--bg-elevated);
-    margin: -14px -14px 10px -14px;
-    padding: 10px 14px 10px 14px !important;
-    border-bottom: 1px solid var(--border-subtle) !important;
-    border-radius: 14px 14px 0 0;
-    grid-column: 1 / -1;
-    color: var(--text-primary) !important;
-    font-weight: 600;
-    flex-direction: row !important;
-    align-items: center;
-    justify-content: space-between;
-  }
-
-  .mobile-table td[data-label="Date"]::before {
-    margin-bottom: 0 !important;
-    font-size: 11px;
-    color: var(--text-muted);
-  }
-
-  .mobile-table td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    font-size: 9px;
-    letter-spacing: 0.08em;
-    margin-bottom: 2px;
-  }
-
-  /* Action/delete cell: float in top corner */
+  /* Action/delete: absolute top-right */
   .mobile-table td:last-child:has(button) {
-    position: absolute;
-    top: 10px;
-    right: 10px;
+    position: absolute !important;
+    top: 12px;
+    right: 12px;
     width: auto !important;
     padding: 0 !important;
     display: block !important;
@@ -495,6 +489,92 @@ input[type="number"]::placeholder {
 
   .mobile-table td:last-child:has(button)::before {
     display: none;
+  }
+
+  /* ================================================
+     Transaction cards (.tx-cards) overrides
+     ================================================ */
+
+  /* Reset the hero first-child for Date — it should NOT be a banner */
+  .tx-cards td:first-child {
+    grid-column: 2;
+    padding: 2px 0 !important;
+    padding-right: 28px !important;
+    border-bottom: none !important;
+    margin-bottom: 0;
+    font-size: 12px !important;
+    font-weight: 400 !important;
+    color: var(--text-muted) !important;
+    justify-content: flex-end !important;
+    order: 2;
+  }
+
+  /* Type: hero position, row 1 col 1 */
+  .tx-cards td[data-label="Type"] {
+    order: 1;
+    grid-column: 1;
+    font-size: 14px !important;
+    padding-bottom: 6px !important;
+  }
+
+  .tx-cards td[data-label="Type"]::before {
+    display: none;
+  }
+
+  /* Date: row 1 col 2, subtle */
+  .tx-cards td[data-label="Date"]::before {
+    display: none;
+  }
+
+  /* Separator line between header row and details */
+  .tx-cards td[data-label="Type"] {
+    border-bottom: 1px solid var(--border-subtle) !important;
+  }
+
+  /* Asset: row 2 col 1 */
+  .tx-cards td[data-label="Asset"] {
+    order: 3;
+    grid-column: 1;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    font-size: 14px !important;
+    padding-top: 4px !important;
+  }
+
+  .tx-cards td[data-label="Asset"]::before {
+    display: none;
+  }
+
+  /* Total: row 2 col 2, prominent */
+  .tx-cards td[data-label="Total"] {
+    order: 4;
+    grid-column: 2;
+    justify-content: flex-end !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
+    color: var(--text-primary) !important;
+    padding-top: 4px !important;
+  }
+
+  .tx-cards td[data-label="Total"]::before {
+    display: none;
+  }
+
+  /* Qty: row 3 col 1, small detail */
+  .tx-cards td[data-label="Qty"] {
+    order: 5;
+    grid-column: 1;
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
+  }
+
+  /* Price: row 3 col 2, small detail */
+  .tx-cards td[data-label="Price"] {
+    order: 6;
+    grid-column: 2;
+    justify-content: flex-end !important;
+    font-size: 12px !important;
+    color: var(--text-muted) !important;
   }
 
   /* Remove hover background on mobile */

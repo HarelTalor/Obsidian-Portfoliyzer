@@ -237,7 +237,7 @@ export default function LedgerTab({ userId }: { userId: string }) {
           {transactions.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No transactions yet. Add one above to get started.</div>
           ) : (
-          <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className="mobile-table tx-cards" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Date", "Type", "Asset", "Qty", "Price", "Total", ""].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
             <tbody>
               {transactions.map((tx) => {
