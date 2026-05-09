@@ -132,14 +132,14 @@ export default function StrategyTab({ userId }: { userId: string }) {
           </div>
 
           {/* Table */}
-          <div className="card" style={{ overflow: "hidden" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 140px 56px", gap: 12, padding: "12px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
+          <div className="card strategy-table-mobile" style={{ overflow: "hidden" }}>
+            <div className="strategy-header" style={{ display: "grid", gridTemplateColumns: "1fr 140px 56px", gap: 12, padding: "12px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
               <span style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Asset Ticker</span>
               <span style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Target %</span>
               <span />
             </div>
             {targets.map((target, index) => (
-              <div key={target.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 56px", gap: 12, padding: "12px 20px", alignItems: "center", borderBottom: index < targets.length - 1 ? "1px solid var(--border-subtle)" : "none", transition: "background 0.15s" }}
+              <div className="strategy-row" key={target.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 56px", gap: 12, padding: "12px 20px", alignItems: "center", borderBottom: index < targets.length - 1 ? "1px solid var(--border-subtle)" : "none", transition: "background 0.15s" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                 <input type="text" placeholder="e.g. VOO, BTC-USD" value={target.asset_ticker}
                   onChange={(e) => updateRow(target.id, "asset_ticker", e.target.value.toUpperCase())}

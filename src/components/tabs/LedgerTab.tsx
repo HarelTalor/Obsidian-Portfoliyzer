@@ -329,7 +329,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
       {/* SECTION B: CURRENT VS TARGET + DCA */}
       <div className="grid-two-col-ledger">
         <div className="card" style={{ overflow: "hidden" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border-subtle)", display: "flex", justifyContent: "space-between", alignItems: "center" }} className="mobile-summary-header">
             <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Current vs Target</h3>
             <span style={{ color: "var(--text-muted)", fontSize: 12 }}>
               Assets: <span style={{ color: "var(--accent-green)", fontWeight: 700 }}>{formatUSD(totalAssetValue)}</span>
