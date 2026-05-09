@@ -132,7 +132,8 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       if (activeCost > 0 && weightedYears > 0) {
         const avgYears = weightedYears / activeCost;
         if (avgYears > 0) {
-          personalCagr = (Math.pow(currentValue / activeCost, 1 / avgYears) - 1) * 100;
+          const yearsForCalc = Math.max(avgYears, 1); // prevent massive numbers for <1 yr holding
+          personalCagr = (Math.pow(currentValue / activeCost, 1 / yearsForCalc) - 1) * 100;
         }
       }
       
@@ -157,7 +158,8 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
     if (pfNetInvested > 0 && pfWeightedYears > 0) {
       const avgYears = pfWeightedYears / pfNetInvested;
       if (avgYears > 0) {
-        portfolioCagr = (Math.pow(totalPortfolioValue / pfNetInvested, 1 / avgYears) - 1) * 100;
+        const yearsForCalc = Math.max(avgYears, 1); // prevent massive numbers for <1 yr holding
+        portfolioCagr = (Math.pow(totalPortfolioValue / pfNetInvested, 1 / yearsForCalc) - 1) * 100;
       }
     }
 
