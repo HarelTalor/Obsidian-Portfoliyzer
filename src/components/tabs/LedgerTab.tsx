@@ -50,7 +50,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
     setLoading(true);
     setError(null);
     const [txRes, targetRes, userRes] = await Promise.all([
-      supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: false }),
+      supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: false }).order("created_at", { ascending: false }),
       supabase.from("portfolio_targets").select("*").eq("user_id", userId),
       supabase.from("users").select("*").eq("id", userId).single(),
     ]);
@@ -296,7 +296,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
           {transactions.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No transactions yet. Add one above to get started.</div>
           ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Date", "Type", "Asset", "Qty", "Price", "Total", ""].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
             <tbody>
               {transactions.map((tx) => {
@@ -306,13 +306,13 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
                 const total = isCash ? tx.price : tx.quantity * tx.price;
                 return (
                   <tr key={tx.id} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                    <td style={{ padding: "10px 16px", color: "var(--text-secondary)" }}>{tx.date}</td>
-                    <td style={{ padding: "10px 16px" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: typeInfo.color, fontWeight: 600 }}><Icon size={14} /> {tx.type}</span></td>
-                    <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{tx.asset_ticker || "—"}</td>
-                    <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{isCash ? "—" : tx.quantity}</td>
-                    <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(tx.price)}</td>
-                    <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(total)}</td>
-                    <td style={{ padding: "10px 16px" }}><button onClick={() => removeTransaction(tx.id)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, borderRadius: 6 }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-rose)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}><Trash2 size={14} /></button></td>
+                    <td data-label="Date" style={{ padding: "10px 16px", color: "var(--text-secondary)" }}>{tx.date}</td>
+                    <td data-label="Type" style={{ padding: "10px 16px" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: typeInfo.color, fontWeight: 600 }}><Icon size={14} /> {tx.type}</span></td>
+                    <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{tx.asset_ticker || "—"}</td>
+                    <td data-label="Qty" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{isCash ? "—" : tx.quantity}</td>
+                    <td data-label="Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(tx.price)}</td>
+                    <td data-label="Total" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(total)}</td>
+                    <td data-label="Action" style={{ padding: "10px 16px" }}><button onClick={() => removeTransaction(tx.id)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, borderRadius: 6 }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-rose)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}><Trash2 size={14} /></button></td>
                   </tr>);
               })}
             </tbody>
@@ -340,17 +340,17 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
             <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No targets set. Go to &quot;The Strategy&quot; tab to define your allocation.</div>
           ) : (
           <div className="table-scroll">
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+          <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Current %", "Target %", "Gap", "Live Price", "Value"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
             <tbody>{portfolioAnalysis.map((row) => {
               const gapColor = row.gap > 0 ? "var(--accent-green)" : row.gap < -2 ? "var(--accent-rose)" : "var(--accent-amber)";
               return (<tr key={row.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{row.ticker}</td>
-                <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.currentPct.toFixed(1)}%</td>
-                <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.targetPct}%</td>
-                <td style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: gapColor }}>{row.gap > 0 ? "+" : ""}{row.gap.toFixed(1)}%</td>
-                <td style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.livePrice)}</td>
-                <td style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.currentValue)}</td>
+                <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{row.ticker}</td>
+                <td data-label="Current %" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.currentPct.toFixed(1)}%</td>
+                <td data-label="Target %" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.targetPct}%</td>
+                <td data-label="Gap" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: gapColor }}>{row.gap > 0 ? "+" : ""}{row.gap.toFixed(1)}%</td>
+                <td data-label="Live Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.livePrice)}</td>
+                <td data-label="Value" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.currentValue)}</td>
               </tr>);
             })}</tbody>
           </table>
