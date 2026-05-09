@@ -18,7 +18,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
   const loadData = useCallback(async () => {
     setLoading(true);
     const [txRes, snapRes] = await Promise.all([
-      supabase.from("transactions").select("*").eq("user_id", userId).order("date"),
+      supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("daily_snapshots").select("*").eq("user_id", userId).order("date"),
     ]);
     if (txRes.data) setTransactions(txRes.data.map((d) => ({ type: d.type as TransactionType, asset_ticker: d.asset_ticker || "", quantity: Number(d.quantity) || 0, price: Number(d.price) || 0 })));
@@ -63,8 +63,16 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
         case "Dividend": cash += tx.price; break;
         case "Buy":
           if (!assets[tx.asset_ticker]) assets[tx.asset_ticker] = { qty: 0, totalCost: 0 };
-          assets[tx.asset_ticker].qty += tx.quantity; assets[tx.asset_ticker].totalCost += tx.quantity * tx.price;
-          cash -= tx.quantity * tx.price; break;
+          assets[tx.asset_ticker].qty += tx.quantity;
+          assets[tx.asset_ticker].totalCost += tx.quantity * tx.price;
+          const cost = tx.quantity * tx.price;
+          if (cash >= cost) {
+            cash -= cost;
+          } else {
+            totalDeposits += (cost - cash);
+            cash = 0;
+          }
+          break;
         case "Sell":
           if (assets[tx.asset_ticker]) { const avg = assets[tx.asset_ticker].totalCost / assets[tx.asset_ticker].qty; assets[tx.asset_ticker].qty -= tx.quantity; assets[tx.asset_ticker].totalCost = assets[tx.asset_ticker].qty * avg; }
           cash += tx.quantity * tx.price; break;

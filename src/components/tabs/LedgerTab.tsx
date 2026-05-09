@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, ChevronDown, Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2, Bell, BellOff, Clock, Calendar, DollarSign, Hash } from "lucide-react";
+import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, ChevronDown, Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2, Bell, BellOff, Clock, Calendar, DollarSign, Hash, Settings, Save } from "lucide-react";
 import type { TransactionType } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
 import { useLivePrices } from "@/lib/use-live-prices";
@@ -72,7 +72,8 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
   const holdings = useMemo(() => {
     const h: Record<string, { qty: number; totalCost: number }> = {};
     let cash = 0;
-    for (const tx of transactions) {
+    const chronologicalTxs = [...transactions].reverse();
+    for (const tx of chronologicalTxs) {
       switch (tx.type) {
         case "Deposit": cash += tx.price; break;
         case "Withdrawal": cash -= tx.price; break;
@@ -81,7 +82,12 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
           if (!h[tx.asset_ticker]) h[tx.asset_ticker] = { qty: 0, totalCost: 0 };
           h[tx.asset_ticker].qty += tx.quantity;
           h[tx.asset_ticker].totalCost += tx.quantity * tx.price;
-          cash -= tx.quantity * tx.price;
+          const cost = tx.quantity * tx.price;
+          if (cash >= cost) {
+            cash -= cost;
+          } else {
+            cash = 0;
+          }
           break;
         case "Sell":
           if (h[tx.asset_ticker]) {
@@ -211,7 +217,7 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
     const strategyNote = dcaRecommendation.assets.length === 1
       ? `${dcaRecommendation.assets[0].ticker} is currently the furthest from your target allocation. Concentrating your entire monthly budget into this single asset is the most cost-effective way to close your portfolio gap without triggering multiple transaction fees.`
       : `These ${dcaRecommendation.assets.length} assets are the furthest below target. Splitting across only 2 assets minimizes commission fees while efficiently closing the largest gaps.`;
-    const html = `<div style="background:#0a0a0f;padding:40px 0;font-family:'Inter',system-ui,sans-serif"><div style="max-width:560px;margin:0 auto;background:#12121a;border-radius:16px;border:1px solid #1e293b;overflow:hidden"><div style="padding:32px 32px 24px;border-bottom:1px solid #1e293b;text-align:center"><div style="display:inline-block;background:rgba(52,211,153,0.1);border-radius:12px;padding:10px;margin-bottom:16px"><span style="color:#34d399;font-size:24px">📊</span></div><h1 style="color:#f0f0f5;font-size:22px;font-weight:800;margin:0 0 4px">Obsidian Portfoliyzer</h1><p style="color:#8b8ba7;font-size:13px;margin:0">Monthly DCA Action Plan</p></div><div style="padding:28px 32px"><p style="color:#c8c8d8;font-size:14px;line-height:1.6;margin:0 0 24px">Hello,<br/><br/>It is your scheduled DCA deployment day. Your predefined monthly investment budget of <strong style="color:#34d399">${formatUSD(dcaBudget)}</strong> is ready to be allocated.</p><div style="background:#0a0a0f;border-radius:12px;border:1px solid #1e293b;overflow:hidden;margin-bottom:24px"><div style="padding:12px 20px;border-bottom:1px solid #1e293b"><span style="color:#8b8ba7;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Action Plan</span></div><table style="width:100%;border-collapse:collapse">${actionLines}</table></div><div style="background:rgba(251,191,36,0.08);border-radius:10px;padding:16px 20px;margin-bottom:24px;border-left:3px solid #fbbf24"><p style="color:#fbbf24;font-size:12px;font-weight:600;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.03em">Strategy Note</p><p style="color:#c8c8d8;font-size:13px;line-height:1.5;margin:0">${strategyNote}</p></div><div style="background:#0a0a0f;border-radius:10px;padding:16px 20px;margin-bottom:24px"><span style="color:#8b8ba7;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Portfolio Snapshot</span><p style="color:#f0f0f5;font-size:22px;font-weight:800;margin:8px 0 0">${formatUSD(totalPortfolioValue)}</p></div><p style="color:#5a5a72;font-size:12px;text-align:center;margin:0">Once executed, log in to Obsidian Portfoliyzer to record this transaction.</p></div></div></div>`;
+    const html = `<div style="background:#0a0a0f;padding:40px 0;font-family:'Inter',system-ui,sans-serif"><div style="max-width:560px;margin:0 auto;background:#12121a;border-radius:16px;border:1px solid #1e293b;overflow:hidden"><div style="padding:32px 32px 24px;border-bottom:1px solid #1e293b;text-align:center"><div style="display:inline-block;background:rgba(52,211,153,0.1);border-radius:12px;padding:10px;margin-bottom:16px"><span style="color:#34d399;font-size:24px">📊</span></div><h1 style="color:#f0f0f5;font-size:22px;font-weight:800;margin:0 0 4px">Obsidian Portfoliyzer</h1><p style="color:#8b8ba7;font-size:13px;margin:0">Monthly DCA Action Plan</p></div><div style="padding:28px 32px"><p style="color:#c8c8d8;font-size:14px;line-height:1.6;margin:0 0 24px">Hello,<br/><br/>You have <strong style="color:#34d399;font-size:18px">${formatUSD(holdings.cash)}</strong> available to deploy. Your monthly budget is <strong style="color:#34d399">${formatUSD(dcaBudget)}</strong>.<br/><br/>Here is what we recommend:</p><div style="background:#0a0a0f;border-radius:12px;border:1px solid #1e293b;overflow:hidden;margin-bottom:24px"><div style="padding:12px 20px;border-bottom:1px solid #1e293b"><span style="color:#8b8ba7;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Action Plan</span></div><table style="width:100%;border-collapse:collapse">${actionLines}</table></div><div style="background:rgba(251,191,36,0.08);border-radius:10px;padding:16px 20px;margin-bottom:24px;border-left:3px solid #fbbf24"><p style="color:#fbbf24;font-size:12px;font-weight:600;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.03em">Strategy Note</p><p style="color:#c8c8d8;font-size:13px;line-height:1.5;margin:0">${strategyNote}</p></div><div style="background:#0a0a0f;border-radius:10px;padding:16px 20px;margin-bottom:24px"><span style="color:#8b8ba7;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Portfolio Snapshot</span><p style="color:#f0f0f5;font-size:22px;font-weight:800;margin:8px 0 0">${formatUSD(totalPortfolioValue)}</p></div><p style="color:#5a5a72;font-size:12px;text-align:center;margin:0">Once executed, log in to Obsidian Portfoliyzer to record this transaction.</p></div></div></div>`;
     try {
       const res = await fetch("/api/send-email", {
         method: "POST",
@@ -357,82 +363,105 @@ export default function LedgerTab({ userId, userEmail }: { userId: string; userE
           </div>)}
         </div>
 
-        {/* Smart DCA Card */}
-        <div className="card glow-green" style={{ padding: 24 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-green-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}><Zap size={18} style={{ color: "var(--accent-green)" }} /></div>
-            <div><h3 style={{ color: "var(--text-primary)", fontSize: 15, fontWeight: 700 }}>Smart DCA Deploy</h3><p style={{ color: "var(--text-muted)", fontSize: 11 }}>Fee-optimized recommendation</p></div>
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            <label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Monthly Budget</label>
-            <div style={{ position: "relative" }}>
-              <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: 14 }}>$</span>
-              <input type="number" value={dcaBudget} min={0} step={100} onChange={(e) => setDcaBudget(parseFloat(e.target.value) || 0)} onBlur={() => supabase.from("users").update({ monthly_dca_budget: dcaBudget }).eq("id", userId)} style={{ width: "100%", paddingLeft: 28 }} />
+        <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+          {/* DCA Settings Box */}
+          <div className="card" style={{ padding: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--bg-elevated)", display: "flex", alignItems: "center", justifyContent: "center" }}><Settings size={18} style={{ color: "var(--text-secondary)" }} /></div>
+              <div><h3 style={{ color: "var(--text-primary)", fontSize: 15, fontWeight: 700 }}>DCA Strategy Settings</h3><p style={{ color: "var(--text-muted)", fontSize: 11 }}>Set your monthly investment</p></div>
             </div>
-          </div>
-
-          {dcaRecommendation.message ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 16, background: "var(--accent-green-dim)", borderRadius: 10 }}>
-              <TrendingUp size={16} style={{ color: "var(--accent-green)" }} /><span style={{ color: "var(--accent-green)", fontSize: 13, fontWeight: 500 }}>{dcaRecommendation.message}</span>
-            </div>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", background: "var(--accent-amber-dim)", borderRadius: 10 }}>
-                <AlertTriangle size={14} style={{ color: "var(--accent-amber)" }} />
-                <span style={{ color: "var(--accent-amber)", fontSize: 12, fontWeight: 500 }}>Concentrate into {dcaRecommendation.assets.length === 1 ? "1 asset" : "2 assets"} to minimize fees</span>
+            
+            <label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Monthly Budget ($)</label>
+            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 20 }}>
+              <div style={{ position: "relative", flex: 1 }}>
+                <span style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: 14 }}>$</span>
+                <input type="number" value={dcaBudget} min={0} step={100} onChange={(e) => setDcaBudget(parseFloat(e.target.value) || 0)} style={{ width: "100%", paddingLeft: 28 }} />
               </div>
-              {dcaRecommendation.assets.map((rec) => (
-                <div key={rec.ticker} className="card-elevated" style={{ padding: 16 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                    <span style={{ color: "var(--text-primary)", fontSize: 16, fontWeight: 700 }}>{rec.ticker}</span>
-                    <span style={{ color: "var(--accent-green)", fontSize: 18, fontWeight: 800 }}>{formatUSD(rec.allocation)}</span>
-                  </div>
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
-                    <span>Gap: <span style={{ color: "var(--accent-rose)", fontWeight: 600 }}>{rec.gapPct.toFixed(1)}%</span></span>
-                    <span>≈ {rec.shares.toFixed(4)} shares @ {formatUSD(rec.price)}</span>
-                  </div>
-                </div>
-              ))}
-              {/* Email DCA button */}
-              <button onClick={sendDCAEmail} disabled={emailSending} className="btn-ghost" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
-                {emailSending ? <Loader2 size={14} style={{ animation: "spin 0.6s linear infinite" }} /> : emailSent ? <CheckCircle2 size={14} style={{ color: "var(--accent-green)" }} /> : <Mail size={14} />}
-                {emailSent ? "Email Sent!" : "Email DCA Summary"}
+              <button 
+                className="btn-primary" 
+                onClick={() => supabase.from("users").update({ monthly_dca_budget: dcaBudget }).eq("id", userId)} 
+                style={{ height: 42, display: "flex", alignItems: "center", gap: 6, padding: "0 16px" }}
+              >
+                <Save size={16} /> Save
               </button>
-
-              {/* Alert Schedule Settings */}
-              <div style={{ borderTop: "1px solid var(--border-subtle)", marginTop: 12, paddingTop: 16 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {alertEnabled ? <Bell size={14} style={{ color: "var(--accent-green)" }} /> : <BellOff size={14} style={{ color: "var(--text-muted)" }} />}
-                    <span style={{ color: "var(--text-secondary)", fontSize: 13, fontWeight: 600 }}>Monthly Alert</span>
-                  </div>
-                  <button onClick={() => { const v = !alertEnabled; setAlertEnabled(v); saveAlertSettings(v, alertDay, alertTime); }}
-                    style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", background: alertEnabled ? "var(--accent-green)" : "var(--bg-secondary)" }}>
-                    <div style={{ width: 18, height: 18, borderRadius: 9, background: "#fff", position: "absolute", top: 3, transition: "left 0.2s", left: alertEnabled ? 23 : 3 }} />
-                  </button>
-                </div>
-                {alertEnabled && (
-                  <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-muted)", fontSize: 10, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}><Calendar size={10} />Day</label>
-                      <select value={alertDay} onChange={(e) => { const d = parseInt(e.target.value); setAlertDay(d); saveAlertSettings(alertEnabled, d, alertTime); }}
-                        style={{ width: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-sans)", outline: "none", appearance: "auto" as const }}>
-                        {Array.from({ length: 28 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
-                      </select>
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <label style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-muted)", fontSize: 10, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}><Clock size={10} />Time</label>
-                      <input type="time" value={alertTime} onChange={(e) => { setAlertTime(e.target.value); saveAlertSettings(alertEnabled, alertDay, e.target.value); }}
-                        style={{ width: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-sans)", outline: "none", colorScheme: "dark" }} />
-                    </div>
-                    {alertSaving && <Loader2 size={14} style={{ color: "var(--accent-green)", animation: "spin 0.6s linear infinite", marginBottom: 10 }} />}
-                  </div>
-                )}
-                {alertEnabled && <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 8 }}>Email will be sent to <strong style={{ color: "var(--text-secondary)" }}>{userEmail}</strong> on day {alertDay} at {alertTime}</p>}
-              </div>
-              <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
-          )}
+
+            {/* Alert Schedule Settings */}
+            <div style={{ borderTop: "1px solid var(--border-subtle)", paddingTop: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {alertEnabled ? <Bell size={14} style={{ color: "var(--accent-green)" }} /> : <BellOff size={14} style={{ color: "var(--text-muted)" }} />}
+                  <span style={{ color: "var(--text-secondary)", fontSize: 13, fontWeight: 600 }}>Monthly Alert</span>
+                </div>
+                <button onClick={() => { const v = !alertEnabled; setAlertEnabled(v); saveAlertSettings(v, alertDay, alertTime); }}
+                  style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", position: "relative", transition: "background 0.2s", background: alertEnabled ? "var(--accent-green)" : "var(--bg-secondary)" }}>
+                  <div style={{ width: 18, height: 18, borderRadius: 9, background: "#fff", position: "absolute", top: 3, transition: "left 0.2s", left: alertEnabled ? 23 : 3 }} />
+                </button>
+              </div>
+              {alertEnabled && (
+                <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-muted)", fontSize: 10, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}><Calendar size={10} />Day</label>
+                    <select value={alertDay} onChange={(e) => { const d = parseInt(e.target.value); setAlertDay(d); saveAlertSettings(alertEnabled, d, alertTime); }}
+                      style={{ width: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-sans)", outline: "none", appearance: "auto" as const }}>
+                      {Array.from({ length: 28 }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
+                    </select>
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, color: "var(--text-muted)", fontSize: 10, fontWeight: 600, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}><Clock size={10} />Time</label>
+                    <input type="time" value={alertTime} onChange={(e) => { setAlertTime(e.target.value); saveAlertSettings(alertEnabled, alertDay, e.target.value); }}
+                      style={{ width: "100%", background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 10px", color: "var(--text-primary)", fontSize: 13, fontFamily: "var(--font-sans)", outline: "none", colorScheme: "dark" }} />
+                  </div>
+                  {alertSaving && <Loader2 size={14} style={{ color: "var(--accent-green)", animation: "spin 0.6s linear infinite", marginBottom: 10 }} />}
+                </div>
+              )}
+              {alertEnabled && <p style={{ color: "var(--text-muted)", fontSize: 11, marginTop: 8 }}>Email will be sent to <strong style={{ color: "var(--text-secondary)" }}>{userEmail}</strong> on day {alertDay} at {alertTime}</p>}
+            </div>
+          </div>
+
+          {/* Smart DCA Card */}
+          <div className="card glow-green" style={{ padding: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-green-dim)", display: "flex", alignItems: "center", justifyContent: "center" }}><Zap size={18} style={{ color: "var(--accent-green)" }} /></div>
+              <div><h3 style={{ color: "var(--text-primary)", fontSize: 15, fontWeight: 700 }}>Smart DCA Deploy</h3><p style={{ color: "var(--text-muted)", fontSize: 11 }}>Fee-optimized recommendation</p></div>
+            </div>
+
+            <div style={{ marginBottom: 20, padding: 16, background: "var(--bg-secondary)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ color: "var(--text-secondary)", fontSize: 13, fontWeight: 600 }}>Available Cash:</span>
+              <span style={{ color: holdings.cash > 0 ? "var(--accent-green)" : "var(--text-primary)", fontSize: 18, fontWeight: 800 }}>{formatUSD(holdings.cash)}</span>
+            </div>
+
+            {dcaRecommendation.message ? (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: 16, background: "var(--accent-green-dim)", borderRadius: 10 }}>
+                <TrendingUp size={16} style={{ color: "var(--accent-green)" }} /><span style={{ color: "var(--accent-green)", fontSize: 13, fontWeight: 500 }}>{dcaRecommendation.message}</span>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", background: "var(--accent-amber-dim)", borderRadius: 10 }}>
+                  <AlertTriangle size={14} style={{ color: "var(--accent-amber)" }} />
+                  <span style={{ color: "var(--accent-amber)", fontSize: 12, fontWeight: 500 }}>Concentrate into {dcaRecommendation.assets.length === 1 ? "1 asset" : "2 assets"} to minimize fees</span>
+                </div>
+                {dcaRecommendation.assets.map((rec) => (
+                  <div key={rec.ticker} className="card-elevated" style={{ padding: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <span style={{ color: "var(--text-primary)", fontSize: 16, fontWeight: 700 }}>{rec.ticker}</span>
+                      <span style={{ color: "var(--accent-green)", fontSize: 18, fontWeight: 800 }}>{formatUSD(rec.allocation)}</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
+                      <span>Gap: <span style={{ color: "var(--accent-rose)", fontWeight: 600 }}>{rec.gapPct.toFixed(1)}%</span></span>
+                      <span>≈ {rec.shares.toFixed(4)} shares @ {formatUSD(rec.price)}</span>
+                    </div>
+                  </div>
+                ))}
+                {/* Email DCA button */}
+                <button onClick={sendDCAEmail} disabled={emailSending} className="btn-ghost" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
+                  {emailSending ? <Loader2 size={14} style={{ animation: "spin 0.6s linear infinite" }} /> : emailSent ? <CheckCircle2 size={14} style={{ color: "var(--accent-green)" }} /> : <Mail size={14} />}
+                  {emailSent ? "Email Sent!" : "Email DCA Summary"}
+                </button>
+              </div>
+            )}
+            <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          </div>
         </div>
       </div>
     </div>
