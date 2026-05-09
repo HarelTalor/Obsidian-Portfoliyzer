@@ -10,7 +10,7 @@ import type { TransactionType } from "@/lib/database.types";
 function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n); }
 
 export default function AnalyticsTab({ userId }: { userId: string }) {
-  const [transactions, setTransactions] = useState<{ type: string; asset_ticker: string; quantity: number; price: number }[]>([]);
+  const [transactions, setTransactions] = useState<{ type: string; asset_ticker: string; quantity: number; price: number; date: string }[]>([]);
   const [snapshots, setSnapshots] = useState<{ date: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
   const [assetReturns, setAssetReturns] = useState<Record<string, { return1y: number | null; cagr: number | null; pe: number | null }>>({});
@@ -21,7 +21,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: true }).order("created_at", { ascending: true }),
       supabase.from("daily_snapshots").select("*").eq("user_id", userId).order("date"),
     ]);
-    if (txRes.data) setTransactions(txRes.data.map((d) => ({ type: d.type as TransactionType, asset_ticker: d.asset_ticker || "", quantity: Number(d.quantity) || 0, price: Number(d.price) || 0 })));
+    if (txRes.data) setTransactions(txRes.data.map((d) => ({ type: d.type as TransactionType, asset_ticker: d.asset_ticker || "", quantity: Number(d.quantity) || 0, price: Number(d.price) || 0, date: d.date })));
     if (snapRes.data && snapRes.data.length > 0) {
       setSnapshots(snapRes.data.map((d) => ({ date: d.date, value: Number(d.total_portfolio_value) })));
     } else {
