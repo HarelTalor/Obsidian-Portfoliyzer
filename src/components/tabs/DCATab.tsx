@@ -118,6 +118,7 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
 
   // Smart DCA
   const dcaRecommendation = useMemo(() => {
+    if (holdings.cash <= 0) return { assets: [], message: "No cash available to deploy." };
     const underweight = portfolioAnalysis.filter((a) => a.gap < 0).sort((a, b) => a.gap - b.gap);
     if (underweight.length === 0) return { assets: [], message: "All assets are at or above target." };
     const top = underweight.slice(0, 2);
@@ -125,11 +126,20 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
     return {
       assets: top.map((a) => {
         const w = Math.abs(a.gap) / totalGap;
-        return { ticker: a.ticker, gapPct: a.gap, allocation: dcaBudget * w, shares: a.livePrice > 0 ? (dcaBudget * w) / a.livePrice : 0, price: a.livePrice };
+        const exactAllocation = holdings.cash * w;
+        const roundedAllocation = Math.round(exactAllocation / 5) * 5;
+        
+        const gapBefore = a.gap;
+        const valueAfter = a.currentValue + roundedAllocation;
+        const totalValueAfter = totalAssetValue + holdings.cash;
+        const currentPctAfter = totalValueAfter > 0 ? (valueAfter / totalValueAfter) * 100 : 0;
+        const gapAfter = currentPctAfter - a.targetPct;
+
+        return { ticker: a.ticker, gapBefore, gapAfter, allocation: roundedAllocation, shares: a.livePrice > 0 ? roundedAllocation / a.livePrice : 0, price: a.livePrice };
       }),
       message: "",
     };
-  }, [portfolioAnalysis, dcaBudget]);
+  }, [portfolioAnalysis, holdings.cash, totalAssetValue]);
 
   // Save alert settings
   const saveAlertSettings = async (enabled: boolean, day: number, time: string) => {
@@ -150,12 +160,12 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
     if (dcaRecommendation.assets.length === 0) return;
     setEmailSending(true);
     const actionLines = dcaRecommendation.assets.map((r) =>
-      `<tr><td style="padding:16px 20px;border-bottom:1px solid #1e293b"><span style="color:#34d399;font-size:18px;font-weight:800">►</span> <strong style="color:#f0f0f5;font-size:15px">BUY ${formatUSD(r.allocation)} of ${r.ticker}</strong><br/><span style="color:#8b8ba7;font-size:12px">≈ ${r.shares.toFixed(4)} shares @ ${formatUSD(r.price)} · Gap: ${r.gapPct.toFixed(1)}%</span></td></tr>`
+      `<tr><td style="padding:16px 20px;border-bottom:1px solid #1e293b"><span style="color:#34d399;font-size:18px;font-weight:800">►</span> <strong style="color:#f0f0f5;font-size:15px">BUY ${formatUSD(r.allocation)} of ${r.ticker}</strong><br/><span style="color:#8b8ba7;font-size:12px">≈ ${r.shares.toFixed(4)} shares @ ${formatUSD(r.price)} · Gap: ${r.gapBefore.toFixed(1)}% → ${r.gapAfter.toFixed(1)}%</span></td></tr>`
     ).join("");
     const strategyNote = dcaRecommendation.assets.length === 1
-      ? `${dcaRecommendation.assets[0].ticker} is currently the furthest from your target allocation. Concentrating your entire monthly budget into this single asset is the most cost-effective way to close your portfolio gap without triggering multiple transaction fees.`
+      ? `${dcaRecommendation.assets[0].ticker} is currently the furthest from your target allocation. Concentrating your cash into this single asset is the most cost-effective way to close your portfolio gap without triggering multiple transaction fees.`
       : `These ${dcaRecommendation.assets.length} assets are the furthest below target. Splitting across only 2 assets minimizes commission fees while efficiently closing the largest gaps.`;
-    const html = `<div style="background:#0a0a0f;padding:40px 0;font-family:'Inter',system-ui,sans-serif"><div style="max-width:560px;margin:0 auto;background:#12121a;border-radius:16px;border:1px solid #1e293b;overflow:hidden"><div style="padding:32px 32px 24px;border-bottom:1px solid #1e293b;text-align:center"><div style="display:inline-block;background:rgba(52,211,153,0.1);border-radius:12px;padding:10px;margin-bottom:16px"><span style="color:#34d399;font-size:24px">📊</span></div><h1 style="color:#f0f0f5;font-size:22px;font-weight:800;margin:0 0 4px">Obsidian Portfoliyzer</h1><p style="color:#8b8ba7;font-size:13px;margin:0">Monthly DCA Action Plan</p></div><div style="padding:28px 32px"><p style="color:#c8c8d8;font-size:14px;line-height:1.6;margin:0 0 24px">Hello,<br/><br/>You have <strong style="color:#34d399;font-size:18px">${formatUSD(holdings.cash)}</strong> available to deploy. Your monthly budget is <strong style="color:#34d399">${formatUSD(dcaBudget)}</strong>.<br/><br/>Here is what we recommend:</p><div style="background:#0a0a0f;border-radius:12px;border:1px solid #1e293b;overflow:hidden;margin-bottom:24px"><div style="padding:12px 20px;border-bottom:1px solid #1e293b"><span style="color:#8b8ba7;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Action Plan</span></div><table style="width:100%;border-collapse:collapse">${actionLines}</table></div><div style="background:rgba(251,191,36,0.08);border-radius:10px;padding:16px 20px;margin-bottom:24px;border-left:3px solid #fbbf24"><p style="color:#fbbf24;font-size:12px;font-weight:600;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.03em">Strategy Note</p><p style="color:#c8c8d8;font-size:13px;line-height:1.5;margin:0">${strategyNote}</p></div><div style="background:#0a0a0f;border-radius:10px;padding:16px 20px;margin-bottom:24px"><span style="color:#8b8ba7;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Portfolio Snapshot</span><p style="color:#f0f0f5;font-size:22px;font-weight:800;margin:8px 0 0">${formatUSD(totalPortfolioValue)}</p></div><p style="color:#5a5a72;font-size:12px;text-align:center;margin:0">Once executed, log in to Obsidian Portfoliyzer to record this transaction.</p></div></div></div>`;
+    const html = `<div style="background:#0a0a0f;padding:40px 0;font-family:'Inter',system-ui,sans-serif"><div style="max-width:560px;margin:0 auto;background:#12121a;border-radius:16px;border:1px solid #1e293b;overflow:hidden"><div style="padding:32px 32px 24px;border-bottom:1px solid #1e293b;text-align:center"><div style="display:inline-block;background:rgba(52,211,153,0.1);border-radius:12px;padding:10px;margin-bottom:16px"><span style="color:#34d399;font-size:24px">📊</span></div><h1 style="color:#f0f0f5;font-size:22px;font-weight:800;margin:0 0 4px">Obsidian Portfoliyzer</h1><p style="color:#8b8ba7;font-size:13px;margin:0">Action Plan</p></div><div style="padding:28px 32px"><p style="color:#c8c8d8;font-size:14px;line-height:1.6;margin:0 0 24px">Hello,<br/><br/>You have <strong style="color:#34d399;font-size:18px">${formatUSD(holdings.cash)}</strong> available to deploy.<br/><br/>Here is what we recommend:</p><div style="background:#0a0a0f;border-radius:12px;border:1px solid #1e293b;overflow:hidden;margin-bottom:24px"><div style="padding:12px 20px;border-bottom:1px solid #1e293b"><span style="color:#8b8ba7;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em">Action Plan</span></div><table style="width:100%;border-collapse:collapse">${actionLines}</table></div><div style="background:rgba(52,211,153,0.08);border-radius:10px;padding:16px 20px;margin-bottom:24px;border-left:3px solid #34d399"><p style="color:#34d399;font-size:12px;font-weight:600;margin:0 0 6px;text-transform:uppercase;letter-spacing:0.03em">Strategy Note</p><p style="color:#c8c8d8;font-size:13px;line-height:1.5;margin:0">${strategyNote}</p></div><div style="background:#0a0a0f;border-radius:10px;padding:16px 20px;margin-bottom:24px"><span style="color:#8b8ba7;font-size:11px;text-transform:uppercase;letter-spacing:0.05em">Portfolio Snapshot</span><p style="color:#f0f0f5;font-size:22px;font-weight:800;margin:8px 0 0">${formatUSD(totalPortfolioValue)}</p></div><p style="color:#5a5a72;font-size:12px;text-align:center;margin:0">Once executed, log in to Obsidian Portfoliyzer to record this transaction.</p></div></div></div>`;
     try {
       const res = await fetch("/api/send-email", {
         method: "POST",
@@ -266,8 +276,8 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
           </div>
 
           <div style={{ marginBottom: 20, padding: 16, background: "var(--bg-secondary)", borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ color: "var(--text-secondary)", fontSize: 13, fontWeight: 600 }}>Monthly Budget:</span>
-            <span style={{ color: "var(--accent-green)", fontSize: 18, fontWeight: 800 }}>{formatUSD(dcaBudget)}</span>
+            <span style={{ color: "var(--text-secondary)", fontSize: 13, fontWeight: 600 }}>Cash Available to Deploy:</span>
+            <span style={{ color: "var(--accent-blue)", fontSize: 18, fontWeight: 800 }}>{formatUSD(holdings.cash > 0 ? holdings.cash : 0)}</span>
           </div>
 
           {dcaRecommendation.message ? (
@@ -276,9 +286,9 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", background: "var(--accent-amber-dim)", borderRadius: 10 }}>
-                <AlertTriangle size={14} style={{ color: "var(--accent-amber)" }} />
-                <span style={{ color: "var(--accent-amber)", fontSize: 12, fontWeight: 500 }}>Concentrate into {dcaRecommendation.assets.length === 1 ? "1 asset" : "2 assets"} to minimize fees</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "10px 14px", background: "var(--accent-green-dim)", borderRadius: 10 }}>
+                <CheckCircle2 size={14} style={{ color: "var(--accent-green)" }} />
+                <span style={{ color: "var(--accent-green)", fontSize: 12, fontWeight: 500 }}>Strategy applied: Allocating to {dcaRecommendation.assets.length === 1 ? "1 asset" : "2 assets"} to optimize fees.</span>
               </div>
               {dcaRecommendation.assets.map((rec) => (
                 <div key={rec.ticker} className="card-elevated" style={{ padding: 16 }}>
@@ -287,11 +297,18 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
                     <span style={{ color: "var(--accent-green)", fontSize: 18, fontWeight: 800 }}>{formatUSD(rec.allocation)}</span>
                   </div>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-muted)" }}>
-                    <span>Gap: <span style={{ color: "var(--accent-rose)", fontWeight: 600 }}>{rec.gapPct.toFixed(1)}%</span></span>
+                    <span>Gap: <span style={{ color: "var(--accent-rose)", fontWeight: 600 }}>{rec.gapBefore.toFixed(1)}%</span> → <span style={{ color: "var(--accent-green)", fontWeight: 600 }}>{rec.gapAfter.toFixed(1)}%</span></span>
                     <span>≈ {rec.shares.toFixed(4)} shares @ {formatUSD(rec.price)}</span>
                   </div>
                 </div>
               ))}
+
+              <div style={{ padding: 16, marginTop: 8, background: "var(--bg-secondary)", borderRadius: 10, borderLeft: "3px solid var(--accent-blue)" }}>
+                <p style={{ color: "var(--text-secondary)", fontSize: 12, margin: 0, lineHeight: 1.5 }}>
+                  <strong>Why this allocation?</strong> We concentrate your available cash into the assets furthest below their target allocation. By limiting buys to at most 2 assets, we minimize transaction fees while effectively rebalancing your portfolio.
+                </p>
+              </div>
+
               {/* Email DCA button */}
               <button onClick={sendDCAEmail} disabled={emailSending} className="btn-ghost" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginTop: 4 }}>
                 {emailSending ? <Loader2 size={14} style={{ animation: "spin 0.6s linear infinite" }} /> : emailSent ? <CheckCircle2 size={14} style={{ color: "var(--accent-green)" }} /> : <Mail size={14} />}

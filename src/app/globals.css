@@ -453,6 +453,26 @@ input[type="number"]::placeholder {
     overflow: hidden;
   }
 
+  .mobile-table td[data-label="Date"] {
+    background: var(--bg-elevated);
+    margin: -14px -14px 10px -14px;
+    padding: 10px 14px 10px 14px !important;
+    border-bottom: 1px solid var(--border-subtle) !important;
+    border-radius: 14px 14px 0 0;
+    grid-column: 1 / -1;
+    color: var(--text-primary) !important;
+    font-weight: 600;
+    flex-direction: row !important;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .mobile-table td[data-label="Date"]::before {
+    margin-bottom: 0 !important;
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+
   .mobile-table td::before {
     content: attr(data-label);
     font-weight: 600;
