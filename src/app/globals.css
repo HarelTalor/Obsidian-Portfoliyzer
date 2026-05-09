@@ -420,16 +420,17 @@ input[type="number"]::placeholder {
   /* Base cell */
   .mobile-table td {
     border: none !important;
-    padding: 2px 0 !important;
+    padding: 3px 0 !important;
     font-size: 13px;
     line-height: 1.4;
     min-width: 0;
     overflow: hidden;
     display: flex !important;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
   }
 
-  /* Small uppercase labels */
+  /* Small uppercase labels — stacked above value */
   .mobile-table td::before {
     content: attr(data-label);
     font-weight: 600;
@@ -437,8 +438,13 @@ input[type="number"]::placeholder {
     text-transform: uppercase;
     font-size: 9px;
     letter-spacing: 0.06em;
-    margin-right: 6px;
-    flex-shrink: 0;
+    margin-bottom: 1px;
+  }
+
+  /* Right-column cells: right-align */
+  .mobile-table td[data-label="Target %"],
+  .mobile-table td[data-label="Live Price"] {
+    align-items: flex-end !important;
   }
 
   /* ================================================
@@ -458,13 +464,14 @@ input[type="number"]::placeholder {
     display: none;
   }
 
-  .mobile-table td[data-label="Value"],
-  .mobile-table td[data-label="Live Price"] {
-    justify-content: flex-end !important;
-  }
-
   .mobile-table td[data-label="Value"] {
+    grid-column: 1 / -1;
+    align-items: flex-end !important;
+    border-top: 1px solid var(--border-subtle) !important;
+    margin-top: 4px;
+    padding-top: 6px !important;
     font-weight: 600 !important;
+    font-size: 14px !important;
     color: var(--text-primary) !important;
   }
 
@@ -521,7 +528,6 @@ input[type="number"]::placeholder {
     display: none;
   }
 
-  /* Date: row 1 col 2, subtle */
   .tx-cards td[data-label="Date"]::before {
     display: none;
   }
@@ -549,7 +555,7 @@ input[type="number"]::placeholder {
   .tx-cards td[data-label="Total"] {
     order: 4;
     grid-column: 2;
-    justify-content: flex-end !important;
+    align-items: flex-end !important;
     font-size: 15px !important;
     font-weight: 700 !important;
     color: var(--text-primary) !important;
@@ -572,7 +578,7 @@ input[type="number"]::placeholder {
   .tx-cards td[data-label="Price"] {
     order: 6;
     grid-column: 2;
-    justify-content: flex-end !important;
+    align-items: flex-end !important;
     font-size: 12px !important;
     color: var(--text-muted) !important;
   }
