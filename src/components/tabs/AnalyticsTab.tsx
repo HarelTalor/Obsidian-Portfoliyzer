@@ -13,7 +13,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
   const [transactions, setTransactions] = useState<{ type: string; asset_ticker: string; quantity: number; price: number }[]>([]);
   const [snapshots, setSnapshots] = useState<{ date: string; value: number }[]>([]);
   const [loading, setLoading] = useState(true);
-  const [assetReturns, setAssetReturns] = useState<Record<string, { return1y: number | null; cagr: number | null }>>({});
+  const [assetReturns, setAssetReturns] = useState<Record<string, { return1y: number | null; cagr: number | null; pe: number | null }>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -54,41 +54,114 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
   }, [allTickers.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const analysis = useMemo(() => {
-    const assets: Record<string, { qty: number; totalCost: number }> = {};
+    const assets: Record<string, { qty: number; totalCost: number; remainingBuys: { qty: number; cost: number; date: string }[] }> = {};
+    const cashflows: { amount: number; date: string }[] = [];
     let cash = 0, totalDeposits = 0, totalWithdrawals = 0;
+    
     for (const tx of transactions) {
       switch (tx.type) {
-        case "Deposit": cash += tx.price; totalDeposits += tx.price; break;
-        case "Withdrawal": cash -= tx.price; totalWithdrawals += tx.price; break;
-        case "Dividend": cash += tx.price; break;
+        case "Deposit": 
+          cash += tx.price; 
+          totalDeposits += tx.price; 
+          cashflows.push({ amount: tx.price, date: tx.date });
+          break;
+        case "Withdrawal": 
+          cash -= tx.price; 
+          totalWithdrawals += tx.price; 
+          cashflows.push({ amount: -tx.price, date: tx.date });
+          break;
+        case "Dividend": 
+          cash += tx.price; 
+          break;
         case "Buy":
-          if (!assets[tx.asset_ticker]) assets[tx.asset_ticker] = { qty: 0, totalCost: 0 };
+          if (!assets[tx.asset_ticker]) assets[tx.asset_ticker] = { qty: 0, totalCost: 0, remainingBuys: [] };
           assets[tx.asset_ticker].qty += tx.quantity;
           assets[tx.asset_ticker].totalCost += tx.quantity * tx.price;
+          assets[tx.asset_ticker].remainingBuys.push({ qty: tx.quantity, cost: tx.quantity * tx.price, date: tx.date });
+          
           const cost = tx.quantity * tx.price;
           if (cash >= cost) {
             cash -= cost;
           } else {
-            totalDeposits += (cost - cash);
+            const implicitDeposit = cost - cash;
+            totalDeposits += implicitDeposit;
+            cashflows.push({ amount: implicitDeposit, date: tx.date });
             cash = 0;
           }
           break;
         case "Sell":
-          if (assets[tx.asset_ticker]) { const avg = assets[tx.asset_ticker].totalCost / assets[tx.asset_ticker].qty; assets[tx.asset_ticker].qty -= tx.quantity; assets[tx.asset_ticker].totalCost = assets[tx.asset_ticker].qty * avg; }
-          cash += tx.quantity * tx.price; break;
+          if (assets[tx.asset_ticker]) { 
+            const avg = assets[tx.asset_ticker].totalCost / assets[tx.asset_ticker].qty; 
+            assets[tx.asset_ticker].qty -= tx.quantity; 
+            assets[tx.asset_ticker].totalCost = assets[tx.asset_ticker].qty * avg; 
+            
+            let qtyToSell = tx.quantity;
+            const rb = assets[tx.asset_ticker].remainingBuys;
+            while (qtyToSell > 0 && rb.length > 0) {
+              if (rb[0].qty <= qtyToSell) {
+                qtyToSell -= rb[0].qty;
+                rb.shift();
+              } else {
+                const ratio = qtyToSell / rb[0].qty;
+                rb[0].qty -= qtyToSell;
+                rb[0].cost -= rb[0].cost * ratio;
+                qtyToSell = 0;
+              }
+            }
+          }
+          cash += tx.quantity * tx.price; 
+          break;
       }
     }
+    
+    const nowMs = new Date().getTime();
+    
     const perAsset = Object.entries(assets).map(([ticker, data]) => {
       const livePrice = livePrices[ticker] || 0;
       const currentValue = data.qty * livePrice;
       const pnl = currentValue - data.totalCost;
-      return { ticker, qty: data.qty, cost: data.totalCost, currentValue, pnl, pnlPct: data.totalCost > 0 ? (pnl / data.totalCost) * 100 : 0, livePrice };
+      
+      let personalCagr: number | null = null;
+      let weightedYears = 0;
+      let activeCost = 0;
+      for (const b of data.remainingBuys) {
+        activeCost += b.cost;
+        const yrs = (nowMs - new Date(b.date).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+        weightedYears += b.cost * yrs;
+      }
+      if (activeCost > 0 && weightedYears > 0) {
+        const avgYears = weightedYears / activeCost;
+        if (avgYears > 0) {
+          personalCagr = (Math.pow(currentValue / activeCost, 1 / avgYears) - 1) * 100;
+        }
+      }
+      
+      return { ticker, qty: data.qty, cost: data.totalCost, currentValue, pnl, pnlPct: data.totalCost > 0 ? (pnl / data.totalCost) * 100 : 0, livePrice, personalCagr };
     });
+    
+    perAsset.sort((a, b) => b.pnl - a.pnl);
+    
     const totalAssetValue = perAsset.reduce((s, a) => s + a.currentValue, 0);
     const totalPortfolioValue = totalAssetValue + cash;
     const netDeposits = totalDeposits - totalWithdrawals;
-    const totalPnL = totalAssetValue - (netDeposits - cash); // PnL = current asset value - total cost of those assets
-    return { perAsset, cash, totalAssetValue, totalPortfolioValue, totalPnL, totalROI: netDeposits > 0 ? (totalPnL / netDeposits) * 100 : 0, netDeposits };
+    const totalPnL = totalAssetValue - (netDeposits - cash);
+    
+    let portfolioCagr: number | null = null;
+    let pfWeightedYears = 0;
+    let pfNetInvested = 0;
+    for (const cf of cashflows) {
+      pfNetInvested += cf.amount;
+      const yrs = (nowMs - new Date(cf.date).getTime()) / (365.25 * 24 * 60 * 60 * 1000);
+      pfWeightedYears += cf.amount * yrs;
+    }
+    if (pfNetInvested > 0 && pfWeightedYears > 0) {
+      const avgYears = pfWeightedYears / pfNetInvested;
+      if (avgYears > 0) {
+        portfolioCagr = (Math.pow(totalPortfolioValue / pfNetInvested, 1 / avgYears) - 1) * 100;
+      }
+    }
+
+    return { perAsset, cash, totalAssetValue, totalPortfolioValue, totalPnL, totalROI: netDeposits > 0 ? (totalPnL / netDeposits) * 100 : 0, netDeposits, portfolioCagr };
   }, [transactions, livePrices]);
 
   const barData = analysis.perAsset.map((a) => ({ name: a.ticker, pnl: parseFloat(a.pnl.toFixed(2)) }));
@@ -110,7 +183,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       {/* SCORECARDS */}
       <div className="grid-scorecards">
         <ScoreCard icon={DollarSign} iconColor="var(--accent-green)" iconBg="var(--accent-green-dim)" label="Total Portfolio Value" value={formatUSD(analysis.totalPortfolioValue)} sub={analysis.netDeposits > 0 ? `${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% All Time ROI` : undefined} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
-        <ScoreCard icon={analysis.totalPnL >= 0 ? TrendingUp : TrendingDown} iconColor={analysis.totalPnL >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} iconBg={analysis.totalPnL >= 0 ? "var(--accent-green-dim)" : "var(--accent-rose-dim)"} label="Total Open PnL" value={formatUSD(analysis.totalPnL)} sub={`${analysis.totalROI >= 0 ? "+" : ""}${analysis.totalROI.toFixed(2)}% ROI`} subColor={analysis.totalROI >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
+        <ScoreCard icon={analysis.portfolioCagr !== null && analysis.portfolioCagr >= 0 ? TrendingUp : TrendingDown} iconColor={analysis.portfolioCagr !== null && analysis.portfolioCagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} iconBg={analysis.portfolioCagr !== null && analysis.portfolioCagr >= 0 ? "var(--accent-green-dim)" : "var(--accent-rose-dim)"} label="CAGR (Yearly)" value={analysis.portfolioCagr !== null ? `${analysis.portfolioCagr >= 0 ? "+" : ""}${analysis.portfolioCagr.toFixed(2)}%` : "—"} sub={`Open PnL: ${analysis.totalPnL >= 0 ? "+" : ""}${formatUSD(analysis.totalPnL)}`} subColor={analysis.totalPnL >= 0 ? "var(--accent-green)" : "var(--accent-rose)"} />
         <ScoreCard icon={Wallet} iconColor="var(--accent-blue)" iconBg="var(--accent-blue-dim)" label="Cash Balance" value={formatUSD(analysis.cash)} />
         <ScoreCard icon={Activity} iconColor="var(--accent-amber)" iconBg="var(--accent-amber-dim)" label="Net Deposits" value={formatUSD(analysis.netDeposits)} />
       </div>
@@ -157,13 +230,14 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
         {analysis.perAsset.length === 0 ? <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No holdings. Add Buy transactions in the Ledger tab.</div> : (
         <div className="table-scroll">
           <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "Value", "PnL ($)", "PnL (%)", "1Y Return", "CAGR"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
+            <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "Value", "PnL ($)", "PnL (%)", "PE", "1Y Return", "Pers. CAGR"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
             <tbody>{analysis.perAsset.map((a) => {
               const avgCost = a.qty > 0 ? a.cost / a.qty : 0;
               const c = a.pnl >= 0 ? "var(--accent-green)" : "var(--accent-rose)";
               const ret = assetReturns[a.ticker];
               const r1y = ret?.return1y;
-              const cagr = ret?.cagr;
+              const pe = ret?.pe;
+              const cagr = a.personalCagr;
               return (<tr key={a.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                 <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{a.ticker}</td>
                 <td data-label="Qty" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{a.qty.toFixed(4)}</td>
@@ -172,8 +246,9 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
                 <td data-label="Value" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.currentValue)}</td>
                 <td data-label="PnL ($)" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnl >= 0 ? "+" : ""}{formatUSD(a.pnl)}</td>
                 <td data-label="PnL (%)" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnlPct >= 0 ? "+" : ""}{a.pnlPct.toFixed(2)}%</td>
+                <td data-label="PE" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{pe !== null && pe !== undefined ? pe.toFixed(1) : "—"}</td>
                 <td data-label="1Y Return" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r1y !== null && r1y !== undefined ? (r1y >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{r1y !== null && r1y !== undefined ? `${r1y >= 0 ? "+" : ""}${r1y.toFixed(1)}%` : "—"}</td>
-                <td data-label="CAGR" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagr !== null && cagr !== undefined ? (cagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagr !== null && cagr !== undefined ? `${cagr >= 0 ? "+" : ""}${cagr.toFixed(1)}%/yr` : "—"}</td>
+                <td data-label="Pers. CAGR" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagr !== null && cagr !== undefined ? (cagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagr !== null && cagr !== undefined ? `${cagr >= 0 ? "+" : ""}${cagr.toFixed(1)}%/yr` : "—"}</td>
               </tr>);
             })}</tbody>
           </table>

@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   if (!tickers) return NextResponse.json({ error: "Missing ?tickers=" }, { status: 400 });
 
   const symbols = tickers.split(",").map((s) => s.trim()).filter(Boolean);
-  const results: Record<string, { return1y: number | null; cagr: number | null }> = {};
+  const results: Record<string, { return1y: number | null; cagr: number | null; pe: number | null }> = {};
 
   const now = new Date();
   const oneYearAgo = new Date(now);
@@ -28,12 +28,12 @@ export async function GET(req: NextRequest) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const quotes = (data as any)?.quotes;
         if (!quotes || quotes.length < 2) {
-          results[symbol] = { return1y: null, cagr: null };
+          results[symbol] = { return1y: null, cagr: null, pe: null };
           return;
         }
 
         const currentPrice = quotes[quotes.length - 1]?.close;
-        if (!currentPrice) { results[symbol] = { return1y: null, cagr: null }; return; }
+        if (!currentPrice) { results[symbol] = { return1y: null, cagr: null, pe: null }; return; }
 
         // 1-year return
         let return1y: number | null = null;
@@ -60,9 +60,25 @@ export async function GET(req: NextRequest) {
           }
         }
 
-        results[symbol] = { return1y, cagr };
+        // PE Ratio
+        let pe: number | null = null;
+        try {
+          const quoteResult = await yf.quote(symbol);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          pe = (quoteResult as any)?.trailingPE || (quoteResult as any)?.forwardPE || null;
+        } catch {
+          try {
+            const quoteResult = await yf.quote(`${symbol}.TA`);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            pe = (quoteResult as any)?.trailingPE || (quoteResult as any)?.forwardPE || null;
+          } catch {
+            // ignore
+          }
+        }
+
+        results[symbol] = { return1y, cagr, pe };
       } catch {
-        results[symbol] = { return1y: null, cagr: null };
+        results[symbol] = { return1y: null, cagr: null, pe: null };
       }
     })
   );
