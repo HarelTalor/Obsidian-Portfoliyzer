@@ -5,6 +5,10 @@ import { AuthProvider } from "@/lib/auth-context";
 export const metadata: Metadata = {
   title: "Obsidian Portfoliyzer",
   description: "Automated Buy & Hold Portfolio Management — DCA Strategy, Target Allocation, and Analytics.",
+  icons: {
+    icon: "/mobile_icon.png",
+    apple: "/mobile_icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
