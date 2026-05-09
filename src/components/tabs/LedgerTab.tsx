@@ -108,7 +108,8 @@ export default function LedgerTab({ userId }: { userId: string }) {
       const currentPct = totalAssetValue > 0 ? (currentValue / totalAssetValue) * 100 : 0;
       const assetData = holdings.assets[t.asset_ticker];
       const avgCost = assetData && assetData.qty > 0 ? assetData.totalCost / assetData.qty : 0;
-      return { ticker: t.asset_ticker, targetPct: t.target_percentage, currentPct, gap: currentPct - t.target_percentage, livePrice: livePrices[t.asset_ticker] || 0, avgCost, currentValue };
+      const targetValue = totalAssetValue * (t.target_percentage / 100);
+      return { ticker: t.asset_ticker, targetPct: t.target_percentage, currentPct, gap: currentPct - t.target_percentage, livePrice: livePrices[t.asset_ticker] || 0, avgCost, currentValue, targetValue };
     });
   }, [holdings, targets, livePrices]);
 
@@ -283,7 +284,7 @@ export default function LedgerTab({ userId }: { userId: string }) {
         ) : (
         <div className="table-scroll">
         <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-          <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Current %", "Target %", "Gap", "Avg / Live Price", "Value"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
+          <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Current %", "Target %", "Gap", "Target $", "Value"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
           <tbody>{portfolioAnalysis.map((row) => {
             const gapColor = row.gap > 0 ? "var(--accent-green)" : row.gap < -2 ? "var(--accent-rose)" : "var(--accent-amber)";
             return (<tr key={row.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
@@ -291,11 +292,7 @@ export default function LedgerTab({ userId }: { userId: string }) {
               <td data-label="Current %" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.currentPct.toFixed(1)}%</td>
               <td data-label="Target %" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.targetPct}%</td>
               <td data-label="Gap" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: gapColor }}>{row.gap > 0 ? "+" : ""}{row.gap.toFixed(1)}%</td>
-              <td data-label="Avg / Live Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>
-                <span style={{ color: "var(--text-primary)", fontWeight: 500 }}>{formatUSD(row.avgCost)}</span>
-                <span style={{ margin: "0 6px", color: "var(--border-strong)" }}>/</span>
-                {formatUSD(row.livePrice)}
-              </td>
+              <td data-label="Target $" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.targetValue)}</td>
               <td data-label="Value" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.currentValue)}</td>
             </tr>);
           })}</tbody>
