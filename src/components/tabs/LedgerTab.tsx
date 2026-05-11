@@ -7,7 +7,7 @@ import { supabase } from "@/lib/supabase";
 import { useLivePrices } from "@/lib/use-live-prices";
 
 interface TransactionRow { id: string; date: string; type: TransactionType; asset_ticker: string; quantity: number; price: number; }
-interface TargetAllocation { asset_ticker: string; target_percentage: number; }
+interface TargetAllocation { asset_ticker: string; target_percentage: number; category?: string; }
 
 const TX_TYPES: { value: TransactionType; label: string; icon: typeof Plus; color: string }[] = [
   { value: "Buy", label: "Buy", icon: ArrowUpCircle, color: "var(--accent-green)" },
@@ -45,7 +45,7 @@ export default function LedgerTab({ userId }: { userId: string }) {
     ]);
     if (txRes.error) setError(txRes.error.message);
     if (txRes.data) setTransactions(txRes.data.map((d) => ({ id: d.id, date: d.date, type: d.type as TransactionType, asset_ticker: d.asset_ticker || "", quantity: Number(d.quantity) || 0, price: Number(d.price) || 0 })));
-    if (targetRes.data) setTargets(targetRes.data.map((d) => ({ asset_ticker: d.asset_ticker, target_percentage: Number(d.target_percentage) })));
+    if (targetRes.data) setTargets(targetRes.data.map((d) => ({ asset_ticker: d.asset_ticker, target_percentage: Number(d.target_percentage), category: d.category || "Uncategorized" })));
     setLoading(false);
   }, [userId]);
 
@@ -109,7 +109,7 @@ export default function LedgerTab({ userId }: { userId: string }) {
       const assetData = holdings.assets[t.asset_ticker];
       const avgCost = assetData && assetData.qty > 0 ? assetData.totalCost / assetData.qty : 0;
       const targetValue = totalAssetValue * (t.target_percentage / 100);
-      return { ticker: t.asset_ticker, targetPct: t.target_percentage, currentPct, gap: currentPct - t.target_percentage, livePrice: livePrices[t.asset_ticker] || 0, avgCost, currentValue, targetValue };
+      return { ticker: t.asset_ticker, category: t.category || "Uncategorized", targetPct: t.target_percentage, currentPct, gap: currentPct - t.target_percentage, livePrice: livePrices[t.asset_ticker] || 0, avgCost, currentValue, targetValue };
     });
   }, [holdings, targets, livePrices]);
 
@@ -180,9 +180,13 @@ export default function LedgerTab({ userId }: { userId: string }) {
 
   return (
     <div className="tab-content-enter" style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-      <div>
-        <h2 style={{ color: "var(--text-primary)", fontSize: 24, fontWeight: 700 }}>Ledger</h2>
-        <p style={{ color: "var(--text-secondary)", fontSize: 14, marginTop: 4 }}>Log transactions and view your current portfolio allocation vs targets.</p>
+      <div className="hidden sm:flex mb-8 sm:mb-10 flex-col gap-1.5">
+        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/50">
+          Ledger
+        </h2>
+        <p className="text-[var(--text-secondary)] text-sm sm:text-base max-w-2xl">
+          Log transactions and view your current portfolio allocation vs targets.
+        </p>
       </div>
 
       {error && <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "var(--accent-rose-dim)", borderRadius: 10, color: "var(--accent-rose)", fontSize: 13 }}><AlertTriangle size={16} />{error}<button onClick={() => setError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--accent-rose)", cursor: "pointer" }}>✕</button></div>}
@@ -209,7 +213,15 @@ export default function LedgerTab({ userId }: { userId: string }) {
             <label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Date</label>
             <input type="date" value={formDate} onChange={(e) => setFormDate(e.target.value)} style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 10, padding: "10px 14px", color: "var(--text-primary)", fontSize: 14, fontFamily: "var(--font-sans)", outline: "none", colorScheme: "dark" }} />
           </div>
-          {!isCashOp && <div><label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ticker</label><input type="text" placeholder="VOO" value={formTicker} onChange={(e) => setFormTicker(e.target.value.toUpperCase())} style={{ width: 120 }} /></div>}
+          {!isCashOp && <div>
+            <label style={{ display: "block", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.05em" }}>Ticker</label>
+            <input list="strategy-tickers" type="text" placeholder="VOO" value={formTicker} onChange={(e) => setFormTicker(e.target.value.toUpperCase())} style={{ width: 120, background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 10, padding: "10px 14px", color: "var(--text-primary)", fontSize: 14, fontFamily: "var(--font-sans)", outline: "none" }} />
+            <datalist id="strategy-tickers">
+              {Array.from(new Set(targets.map(t => t.asset_ticker))).filter(Boolean).map(ticker => (
+                <option key={ticker} value={ticker} />
+              ))}
+            </datalist>
+          </div>}
 
           {/* Buy/Sell: Toggle between qty and dollar amount */}
           {!isCashOp && (
@@ -243,22 +255,36 @@ export default function LedgerTab({ userId }: { userId: string }) {
           <table className="mobile-table tx-cards" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Date", "Type", "Asset", "Qty", "Price", "Total", ""].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
             <tbody>
-              {transactions.map((tx) => {
-                const typeInfo = TX_TYPES.find((t) => t.value === tx.type)!;
-                const Icon = typeInfo.icon;
-                const isCash = tx.type === "Deposit" || tx.type === "Withdrawal" || tx.type === "Dividend";
-                const total = isCash ? tx.price : tx.quantity * tx.price;
-                return (
-                  <tr key={tx.id} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+              {(() => {
+                const uniqueCategories = Array.from(new Set(targets.map(t => t.category || "Uncategorized"))).sort();
+                const CATEGORY_PALETTES = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#f43f5e", "#06b6d4"];
+                
+                return transactions.map((tx) => {
+                  const typeInfo = TX_TYPES.find((t) => t.value === tx.type)!;
+                  const Icon = typeInfo.icon;
+                  const isCash = tx.type === "Deposit" || tx.type === "Withdrawal" || tx.type === "Dividend";
+                  const total = isCash ? tx.price : tx.quantity * tx.price;
+                  const category = targets.find(t => t.asset_ticker === tx.asset_ticker)?.category || "Uncategorized";
+                  const catIdx = uniqueCategories.indexOf(category);
+                  const badgeColor = catIdx >= 0 && category !== "Uncategorized" ? CATEGORY_PALETTES[catIdx % CATEGORY_PALETTES.length] : "var(--text-muted)";
+                  
+                  return (
+                    <tr key={tx.id} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
                     <td data-label="Date" style={{ padding: "10px 16px", color: "var(--text-secondary)" }}>{tx.date}</td>
                     <td data-label="Type" style={{ padding: "10px 16px" }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6, color: typeInfo.color, fontWeight: 600 }}><Icon size={14} /> {tx.type}</span></td>
-                    <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }} className={isCash ? "hide-on-mobile" : ""}>{tx.asset_ticker || "—"}</td>
+                    <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }} className={isCash ? "hide-on-mobile" : ""}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {tx.asset_ticker || "—"}
+                        {!isCash && <span style={{ fontSize: 10, padding: "2px 6px", background: category !== "Uncategorized" ? `${badgeColor}20` : "var(--bg-elevated)", borderRadius: 4, color: badgeColor, fontWeight: 600, border: category !== "Uncategorized" ? `1px solid ${badgeColor}40` : "1px solid var(--border-subtle)" }}>{category}</span>}
+                      </div>
+                    </td>
                     <td data-label="Qty" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }} className={isCash ? "hide-on-mobile" : ""}>{isCash ? "—" : tx.quantity}</td>
                     <td data-label="Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }} className={isCash ? "hide-on-mobile" : ""}>{formatUSD(tx.price)}</td>
                     <td data-label="Total" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(total)}</td>
                     <td data-label="Action" style={{ padding: "10px 16px" }}><button onClick={() => removeTransaction(tx.id)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, borderRadius: 6 }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-rose)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}><Trash2 size={14} /></button></td>
                   </tr>);
-              })}
+                });
+              })()}
             </tbody>
           </table>)}
         </div>
@@ -285,17 +311,30 @@ export default function LedgerTab({ userId }: { userId: string }) {
         <div className="table-scroll">
         <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Current %", "Target %", "Gap", "Target $", "Value"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
-          <tbody>{portfolioAnalysis.map((row) => {
-            const gapColor = row.gap > 0 ? "var(--accent-green)" : row.gap < -2 ? "var(--accent-rose)" : "var(--accent-amber)";
-            return (<tr key={row.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-              <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{row.ticker}</td>
+          <tbody>{(() => {
+            const uniqueCategories = Array.from(new Set(targets.map(t => t.category || "Uncategorized"))).sort();
+            const CATEGORY_PALETTES = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#f43f5e", "#06b6d4"];
+            
+            return portfolioAnalysis.map((row) => {
+              const gapColor = row.gap > 0 ? "var(--accent-green)" : row.gap < -2 ? "var(--accent-rose)" : "var(--accent-amber)";
+              const catIdx = uniqueCategories.indexOf(row.category);
+              const badgeColor = catIdx >= 0 && row.category !== "Uncategorized" ? CATEGORY_PALETTES[catIdx % CATEGORY_PALETTES.length] : "var(--text-muted)";
+              
+              return (<tr key={row.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+              <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  {row.ticker}
+                  <span style={{ fontSize: 10, padding: "2px 6px", background: row.category !== "Uncategorized" ? `${badgeColor}20` : "var(--bg-elevated)", borderRadius: 4, color: badgeColor, fontWeight: 600, border: row.category !== "Uncategorized" ? `1px solid ${badgeColor}40` : "1px solid var(--border-subtle)" }}>{row.category}</span>
+                </div>
+              </td>
               <td data-label="Current %" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.currentPct.toFixed(1)}%</td>
               <td data-label="Target %" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{row.targetPct}%</td>
               <td data-label="Gap" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: gapColor }}>{row.gap > 0 ? "+" : ""}{row.gap.toFixed(1)}%</td>
               <td data-label="Target $" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.targetValue)}</td>
               <td data-label="Value" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(row.currentValue)}</td>
             </tr>);
-          })}</tbody>
+            });
+          })()}</tbody>
         </table>
         </div>)}
       </div>

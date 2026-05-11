@@ -405,8 +405,33 @@ input[type="number"]::placeholder {
     background: var(--bg-secondary);
     display: grid !important;
     grid-template-columns: 1fr 1fr;
-    gap: 4px 12px;
-    align-items: center;
+    gap: 8px 12px;
+    align-items: start;
+  }
+
+  /* Stats Table (3 columns) */
+  .stats-table tr {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+
+  .stats-table td:nth-child(3n) {
+    align-items: center !important;
+    text-align: center;
+  }
+  
+  .stats-table td:nth-child(3n+1) {
+    align-items: flex-end !important;
+    text-align: right;
+  }
+  
+  .stats-table td:nth-child(3n+2) {
+    align-items: flex-start !important;
+    text-align: left;
+  }
+
+  .stats-table td:first-child {
+    align-items: flex-start !important;
+    text-align: left;
   }
 
   .hide-on-mobile {

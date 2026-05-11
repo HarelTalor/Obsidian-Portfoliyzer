@@ -2,19 +2,25 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
-import { Plus, Trash2, Save, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import { Plus, Trash2, Save, AlertCircle, CheckCircle2, Loader2, FolderPlus } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface TargetRow {
   id: string;
+  category: string;
   asset_ticker: string;
   target_percentage: number;
 }
 
-const CHART_COLORS = [
-  "#34d399", "#60a5fa", "#a78bfa", "#fbbf24", "#f87171",
-  "#38bdf8", "#fb923c", "#e879f9", "#2dd4bf", "#facc15",
+const CATEGORY_PALETTES = [
+  ["#3b82f6", "#60a5fa", "#93c5fd", "#bfdbfe", "#dbeafe"], // Blue
+  ["#10b981", "#34d399", "#6ee7b7", "#a7f3d0", "#d1fae5"], // Emerald
+  ["#8b5cf6", "#a78bfa", "#c4b5fd", "#ddd6fe", "#ede9fe"], // Violet
+  ["#f59e0b", "#fbbf24", "#fcd34d", "#fde68a", "#fef3c7"], // Amber
+  ["#f43f5e", "#fb7185", "#fda4af", "#fecdd3", "#ffe4e6"], // Rose
+  ["#06b6d4", "#22d3ee", "#67e8f9", "#a5f3fc", "#cffafe"], // Cyan
 ];
+
 const UNALLOCATED_COLOR = "#1c1c28";
 
 export default function StrategyTab({ userId }: { userId: string }) {
@@ -36,14 +42,19 @@ export default function StrategyTab({ userId }: { userId: string }) {
 
     if (err) {
       setError(err.message);
-      setTargets([{ id: crypto.randomUUID(), asset_ticker: "", target_percentage: 0 }]);
+      setTargets([{ id: crypto.randomUUID(), category: "Core", asset_ticker: "", target_percentage: 0 }]);
     } else if (data && data.length > 0) {
-      setTargets(data.map((d) => ({ id: d.id, asset_ticker: d.asset_ticker, target_percentage: Number(d.target_percentage) })));
+      setTargets(data.map((d) => ({ 
+        id: d.id, 
+        category: d.category || "Core", 
+        asset_ticker: d.asset_ticker, 
+        target_percentage: Number(d.target_percentage) 
+      })));
     } else {
-      setTargets([{ id: crypto.randomUUID(), asset_ticker: "", target_percentage: 0 }]);
+      setTargets([{ id: crypto.randomUUID(), category: "Core", asset_ticker: "", target_percentage: 0 }]);
     }
     setLoading(false);
-  }, []);
+  }, [userId]);
 
   useEffect(() => { loadTargets(); }, [loadTargets]);
 
@@ -55,17 +66,69 @@ export default function StrategyTab({ userId }: { userId: string }) {
   const barColor = isOver ? "var(--accent-rose)" : totalPercentage === 100 ? "var(--accent-green)" : "var(--accent-amber)";
 
   const chartData = useMemo(() => {
+    const uniqueCategories = Array.from(new Set(targets.map(t => t.category || "Uncategorized"))).sort();
+    const catCounts: Record<string, number> = {};
+    
     const items = targets
       .filter((t) => t.target_percentage > 0 && t.asset_ticker.trim() !== "")
-      .map((t) => ({ name: t.asset_ticker.toUpperCase(), value: t.target_percentage }));
-    if (remaining > 0) items.push({ name: "Unallocated", value: remaining });
+      .map((t) => {
+        const cat = t.category || "Uncategorized";
+        const catIdx = uniqueCategories.indexOf(cat);
+        const palette = CATEGORY_PALETTES[catIdx % CATEGORY_PALETTES.length];
+        
+        if (!catCounts[cat]) catCounts[cat] = 0;
+        const color = palette[catCounts[cat] % palette.length];
+        catCounts[cat]++;
+        
+        return { 
+          name: t.asset_ticker.toUpperCase(), 
+          value: t.target_percentage, 
+          category: cat,
+          color
+        };
+      });
+
+    if (remaining > 0) items.push({ name: "Unallocated", value: remaining, category: "Unallocated", color: UNALLOCATED_COLOR });
     return items;
   }, [targets, remaining]);
 
+  const groupedTargets = useMemo(() => {
+    const groups: Record<string, TargetRow[]> = {};
+    targets.forEach(t => {
+      const cat = t.category || "Uncategorized";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(t);
+    });
+    return groups;
+  }, [targets]);
+
   // Handlers
-  const addRow = () => { setTargets((p) => [...p, { id: crypto.randomUUID(), asset_ticker: "", target_percentage: 0 }]); setSaved(false); };
-  const removeRow = (id: string) => { setTargets((p) => p.filter((t) => t.id !== id)); setSaved(false); };
-  const updateRow = (id: string, field: keyof TargetRow, value: string | number) => { setTargets((p) => p.map((t) => (t.id === id ? { ...t, [field]: value } : t))); setSaved(false); };
+  const addRow = (category: string) => { 
+    setTargets((p) => [...p, { id: crypto.randomUUID(), category, asset_ticker: "", target_percentage: 0 }]); 
+    setSaved(false); 
+  };
+  
+  const addCategory = () => {
+    const newCat = `Category ${Object.keys(groupedTargets).length + 1}`;
+    setTargets((p) => [...p, { id: crypto.randomUUID(), category: newCat, asset_ticker: "", target_percentage: 0 }]);
+    setSaved(false);
+  };
+
+  const removeRow = (id: string) => { 
+    setTargets((p) => p.filter((t) => t.id !== id)); 
+    setSaved(false); 
+  };
+
+  const updateRow = (id: string, field: keyof TargetRow, value: string | number) => { 
+    setTargets((p) => p.map((t) => (t.id === id ? { ...t, [field]: value } : t))); 
+    setSaved(false); 
+  };
+
+  const updateCategoryName = (oldName: string, newName: string) => {
+    if (oldName === newName || newName.trim() === "") return;
+    setTargets((p) => p.map((t) => (t.category === oldName ? { ...t, category: newName } : t)));
+    setSaved(false);
+  };
 
   // Save to Supabase
   const handleSave = async () => {
@@ -79,6 +142,7 @@ export default function StrategyTab({ userId }: { userId: string }) {
 
     const rows = targets.map((t) => ({
       user_id: userId,
+      category: t.category,
       asset_ticker: t.asset_ticker.toUpperCase(),
       target_percentage: t.target_percentage,
     }));
@@ -101,13 +165,20 @@ export default function StrategyTab({ userId }: { userId: string }) {
     );
   }
 
+  // Dynamic classes for the chart card UI
+  const chartCardClass = `card p-6 lg:p-7 h-fit sticky top-6 transition-all duration-500 ${
+    isOver ? 'border-[var(--accent-rose)] glow-rose' : isValid ? 'border-[var(--accent-green)] glow-green' : 'border-[var(--border-subtle)]'
+  }`;
+
   return (
     <div className="tab-content-enter">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 style={{ color: "var(--text-primary)", fontSize: 24, fontWeight: 700 }}>The Strategy</h2>
-          <p style={{ color: "var(--text-secondary)", fontSize: 14, marginTop: 4 }}>Define your portfolio recipe. Set a target allocation for each asset.</p>
-        </div>
+      <div className="hidden sm:flex mb-8 sm:mb-10 flex-col gap-1.5">
+        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/50">
+          The Strategy
+        </h2>
+        <p className="text-[var(--text-secondary)] text-sm sm:text-base max-w-2xl">
+          Define your portfolio recipe. Organize by categories and set target allocations.
+        </p>
       </div>
 
       {error && (
@@ -116,89 +187,154 @@ export default function StrategyTab({ userId }: { userId: string }) {
         </div>
       )}
 
-      <div className="grid-two-col" style={{ gap: 32 }}>
-        <div>
-          {/* Allocation Bar */}
-          <div className="card-elevated" style={{ padding: "16px 20px", marginBottom: 24 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ color: "var(--text-secondary)", fontSize: 13, fontWeight: 500 }}>Total Allocation</span>
-              <span style={{ color: barColor, fontSize: 15, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{totalPercentage.toFixed(1)}%</span>
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-8 items-start">
+        
+        {/* =========================================
+            Donut Chart (Now First!)
+            ========================================= */}
+        <div className="w-full lg:w-[380px] shrink-0 z-10">
+          <div className={chartCardClass}>
+            <div className="flex justify-between items-center mb-5">
+              <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Target Allocation</h3>
             </div>
-            <div style={{ width: "100%", height: 6, background: "var(--bg-secondary)", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ width: `${Math.min(totalPercentage, 100)}%`, height: "100%", background: barColor, borderRadius: 3, transition: "width 0.4s ease, background 0.3s ease" }} />
-            </div>
-            {isOver && <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, color: "var(--accent-rose)", fontSize: 12 }}><AlertCircle size={14} />Total exceeds 100% by {(totalPercentage - 100).toFixed(1)}%</div>}
-            {isValid && <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 10, color: "var(--accent-green)", fontSize: 12 }}><CheckCircle2 size={14} />Perfect allocation — ready to save</div>}
-          </div>
-
-          {/* Table */}
-          <div className="card strategy-table-mobile" style={{ overflow: "hidden" }}>
-            <div className="strategy-header" style={{ display: "grid", gridTemplateColumns: "1fr 140px 56px", gap: 12, padding: "12px 20px", borderBottom: "1px solid var(--border-subtle)" }}>
-              <span style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Asset Ticker</span>
-              <span style={{ color: "var(--text-muted)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>Target %</span>
-              <span />
-            </div>
-            {targets.map((target, index) => (
-              <div className="strategy-row" key={target.id} style={{ display: "grid", gridTemplateColumns: "1fr 140px 56px", gap: 12, padding: "12px 20px", alignItems: "center", borderBottom: index < targets.length - 1 ? "1px solid var(--border-subtle)" : "none", transition: "background 0.15s" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--bg-hover)")} onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                <input type="text" placeholder="e.g. VOO, BTC-USD" value={target.asset_ticker}
-                  onChange={(e) => updateRow(target.id, "asset_ticker", e.target.value.toUpperCase())}
-                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 12px", color: "var(--text-primary)", fontSize: 14, fontWeight: 500, outline: "none", width: "100%" }} />
-                <div style={{ position: "relative" }}>
-                  <input type="number" min={0} max={100} step={0.1} placeholder="0" value={target.target_percentage || ""}
-                    onChange={(e) => updateRow(target.id, "target_percentage", parseFloat(e.target.value) || 0)}
-                    style={{ background: "var(--bg-secondary)", border: "1px solid var(--border-default)", borderRadius: 8, padding: "8px 12px", paddingRight: 28, color: "var(--text-primary)", fontSize: 14, fontWeight: 500, outline: "none", width: "100%" }} />
-                  <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "var(--text-muted)", fontSize: 13, pointerEvents: "none" }}>%</span>
-                </div>
-                <button onClick={() => removeRow(target.id)} disabled={targets.length <= 1}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 8, border: "none", background: "transparent", color: targets.length <= 1 ? "var(--text-muted)" : "var(--accent-rose)", cursor: targets.length <= 1 ? "not-allowed" : "pointer", transition: "background 0.15s", opacity: targets.length <= 1 ? 0.3 : 1 }}
-                  onMouseEnter={(e) => { if (targets.length > 1) e.currentTarget.style.background = "var(--accent-rose-dim)"; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                  <Trash2 size={16} />
-                </button>
+            
+            <div style={{ position: "relative", width: "100%", height: 320 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={chartData} cx="50%" cy="50%" innerRadius={90} outerRadius={130} paddingAngle={2} dataKey="value" strokeWidth={0} isAnimationActive={true}>
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} style={{ outline: "none", cursor: "pointer", transition: "opacity 0.2s" }} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 10, color: "var(--text-primary)", fontSize: 13, boxShadow: "0 4px 12px rgba(0,0,0,0.2)" }} 
+                    formatter={(value, name, props) => [`${value}%`, props.payload.category ? `${props.payload.category} - ${name}` : name]} 
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
+                <div style={{ fontSize: 36, fontWeight: 800, color: barColor, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{totalPercentage.toFixed(0)}%</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 700 }}>Allocated</div>
               </div>
-            ))}
+            </div>
+            
+            {/* Validation Badges */}
+            {isOver && (
+              <div className="mt-5 flex items-center justify-center gap-2 text-[var(--accent-rose)] text-xs font-semibold bg-[var(--accent-rose-dim)] py-2.5 px-4 rounded-lg animate-pulse">
+                <AlertCircle size={15} /> Total exceeds 100% by {(totalPercentage - 100).toFixed(1)}%
+              </div>
+            )}
+
+            {/* Legend */}
+            <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-2 gap-3 max-h-[140px] overflow-y-auto pr-2" style={{ scrollbarWidth: 'thin' }}>
+              {chartData.filter((d) => d.name !== "Unallocated").map((entry) => (
+                <div key={`${entry.category}-${entry.name}`} className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <div style={{ width: 10, height: 10, borderRadius: 3, background: entry.color, flexShrink: 0 }} />
+                    <span className="text-[13px] font-semibold text-[var(--text-primary)] truncate">{entry.name}</span>
+                  </div>
+                  <span className="text-[11px] text-[var(--text-muted)] pl-4 truncate">{entry.value}% ({entry.category})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* =========================================
+            Grouped Tables
+            ========================================= */}
+        <div className="flex-1 w-full flex flex-col gap-5">
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            {Object.entries(groupedTargets).map(([category, items]) => {
+              const catTotal = items.reduce((s, t) => s + (t.target_percentage || 0), 0);
+              const groupKey = items.length > 0 ? items[0].id : category;
+              return (
+                <div key={groupKey} className="card" style={{ overflow: "hidden", border: "1px solid var(--border-subtle)", transition: "transform 0.2s, box-shadow 0.2s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 8px 24px rgba(0,0,0,0.12)"; e.currentTarget.style.borderColor = "var(--border-default)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--border-subtle)"; }}
+                >
+                  {/* Category Header */}
+                  <div className="flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 bg-gradient-to-r from-[var(--bg-secondary)] to-transparent border-b border-[var(--border-subtle)]">
+                    <input 
+                      type="text" 
+                      value={category} 
+                      onChange={(e) => updateCategoryName(category, e.target.value)} 
+                      onBlur={(e) => updateCategoryName(category, e.target.value.trim() || "Unnamed Category")}
+                      style={{ background: "transparent", border: "none", color: "var(--text-primary)", fontSize: 16, fontWeight: 700, outline: "none", width: "100%", textOverflow: "ellipsis" }}
+                    />
+                    <span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 600, paddingLeft: 12, fontVariantNumeric: "tabular-nums" }}>
+                      {catTotal.toFixed(1)}%
+                    </span>
+                  </div>
+
+                  {/* Rows */}
+                  <div className="flex flex-col pb-2">
+                    {/* Header (Hidden on Mobile) */}
+                    <div className="hidden sm:flex gap-3 px-5 py-2">
+                      <span className="flex-1 text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Asset Ticker</span>
+                      <span className="w-[100px] text-[11px] font-semibold text-[var(--text-muted)] uppercase tracking-wider">Target %</span>
+                      <span className="w-9" />
+                    </div>
+
+                    {items.map((target) => (
+                      <div key={target.id} className="flex flex-row items-center gap-2 sm:gap-3 px-3 sm:px-5 py-2 transition-colors hover:bg-white/5 border-b border-white/5 last:border-none">
+                        <input 
+                          type="text" 
+                          placeholder="e.g. VOO" 
+                          value={target.asset_ticker}
+                          onChange={(e) => updateRow(target.id, "asset_ticker", e.target.value.toUpperCase())}
+                          style={{ flex: 1, minWidth: 0 }}
+                          className="bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-lg px-3 py-2 text-[13px] sm:text-sm text-[var(--text-primary)] font-medium outline-none focus:border-[var(--accent-green)] transition-all placeholder-[var(--text-muted)]" 
+                        />
+                        
+                        <div className="relative shrink-0 w-[80px] sm:w-[100px]">
+                          <input 
+                            type="number" 
+                            min={0} max={100} step={0.1} 
+                            placeholder="0" 
+                            value={target.target_percentage || ""}
+                            onChange={(e) => updateRow(target.id, "target_percentage", parseFloat(e.target.value) || 0)}
+                            className="w-full bg-[var(--bg-secondary)] border border-[var(--border-default)] rounded-lg pl-3 pr-6 sm:pr-8 py-2 text-[13px] sm:text-sm text-[var(--text-primary)] font-medium outline-none focus:border-[var(--accent-green)] transition-all placeholder-[var(--text-muted)]" 
+                          />
+                          <span className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)] text-[13px] pointer-events-none">%</span>
+                        </div>
+
+                        <button 
+                          onClick={() => removeRow(target.id)} 
+                          disabled={targets.length <= 1}
+                          className="shrink-0 w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg border-none bg-transparent text-[var(--text-muted)] cursor-pointer transition-colors disabled:opacity-30 disabled:cursor-not-allowed hover:bg-[var(--accent-rose-dim)] hover:text-[var(--accent-rose)]"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Add Asset to Category */}
+                  <div className="px-3 sm:px-5 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)]">
+                    <button 
+                      onClick={() => addRow(category)} 
+                      className="flex items-center gap-2 text-[13px] text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium transition-colors cursor-pointer bg-transparent border-none p-1"
+                    >
+                      <Plus size={14} /> Add asset to {category}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
 
           {/* Actions */}
-          <div style={{ display: "flex", gap: 12, marginTop: 20, alignItems: "center" }}>
-            <button className="btn-ghost" onClick={addRow} style={{ display: "flex", alignItems: "center", gap: 6 }}><Plus size={16} />Add Asset</button>
-            <button className="btn-primary" onClick={handleSave} disabled={!isValid || saving} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {saving ? (<><Loader2 size={16} style={{ animation: "spin 0.6s linear infinite" }} />Saving...</>) : saved ? (<><CheckCircle2 size={16} />Saved!</>) : (<><Save size={16} />Save Strategy</>)}
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-0 mt-2 mb-8 items-center justify-between">
+            <button className="btn-ghost w-full sm:w-auto flex items-center justify-center gap-2" onClick={addCategory}>
+              <FolderPlus size={16} />New Category
+            </button>
+            <button className="btn-primary w-full sm:w-auto flex items-center justify-center gap-2" onClick={handleSave} disabled={!isValid || saving}>
+              {saving ? (<><Loader2 size={16} className="animate-spin" />Saving...</>) : saved ? (<><CheckCircle2 size={16} />Saved!</>) : (<><Save size={16} />Save Strategy</>)}
             </button>
           </div>
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
 
-        {/* Donut Chart */}
-        <div className="card" style={{ padding: 28 }}>
-          <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>Target Allocation</h3>
-          <div style={{ position: "relative", width: "100%", height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={chartData} cx="50%" cy="50%" innerRadius={80} outerRadius={120} paddingAngle={2} dataKey="value" strokeWidth={0}>
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.name === "Unallocated" ? UNALLOCATED_COLOR : CHART_COLORS[index % CHART_COLORS.length]} style={{ outline: "none" }} />
-                  ))}
-                </Pie>
-                <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 10, color: "var(--text-primary)", fontSize: 13 }} formatter={(value) => [`${value}%`, "Allocation"]} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", textAlign: "center", pointerEvents: "none" }}>
-              <div style={{ fontSize: 28, fontWeight: 800, color: barColor, fontVariantNumeric: "tabular-nums", lineHeight: 1 }}>{totalPercentage.toFixed(0)}%</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Allocated</div>
-            </div>
-          </div>
-          <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: "8px 16px" }}>
-            {chartData.filter((d) => d.name !== "Unallocated").map((entry, index) => (
-              <div key={entry.name} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 10, height: 10, borderRadius: 3, background: CHART_COLORS[index % CHART_COLORS.length] }} />
-                <span style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 500 }}>{entry.name}</span>
-                <span style={{ color: "var(--text-muted)", fontSize: 12 }}>{entry.value}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
     </div>
   );

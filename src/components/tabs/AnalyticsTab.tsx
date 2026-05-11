@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useCallback } from "react";
-import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import { DollarSign, TrendingUp, TrendingDown, Wallet, Activity, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { useLivePrices } from "@/lib/use-live-prices";
@@ -11,26 +11,23 @@ function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "
 
 export default function AnalyticsTab({ userId }: { userId: string }) {
   const [transactions, setTransactions] = useState<{ type: string; asset_ticker: string; quantity: number; price: number; date: string }[]>([]);
-  const [snapshots, setSnapshots] = useState<{ date: string; value: number }[]>([]);
+  const [categories, setCategories] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [assetReturns, setAssetReturns] = useState<Record<string, { return1y: number | null; cagr: number | null; pe: number | null }>>({});
 
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [txRes, snapRes] = await Promise.all([
+    const [txRes, targetRes] = await Promise.all([
       supabase.from("transactions").select("*").eq("user_id", userId).order("date", { ascending: true }).order("created_at", { ascending: true }),
-      supabase.from("daily_snapshots").select("*").eq("user_id", userId).order("date"),
+      supabase.from("portfolio_targets").select("*").eq("user_id", userId),
     ]);
     if (txRes.data) setTransactions(txRes.data.map((d) => ({ type: d.type as TransactionType, asset_ticker: d.asset_ticker || "", quantity: Number(d.quantity) || 0, price: Number(d.price) || 0, date: d.date })));
-    if (snapRes.data && snapRes.data.length > 0) {
-      setSnapshots(snapRes.data.map((d) => ({ date: d.date, value: Number(d.total_portfolio_value) })));
-    } else {
-      // Fallback mock snapshots if none in DB yet
-      setSnapshots([
-        { date: "Jan 15", value: 10000 }, { date: "Feb 01", value: 10450 }, { date: "Mar 01", value: 11120 },
-        { date: "Apr 01", value: 11900 }, { date: "May 01", value: 12680 }, { date: "May 08", value: 13100 },
-      ]);
+    
+    if (targetRes.data) {
+      const cats: Record<string, string> = {};
+      targetRes.data.forEach(t => { if(t.asset_ticker) cats[t.asset_ticker] = t.category || "Uncategorized"; });
+      setCategories(cats);
     }
+    
     setLoading(false);
   }, [userId]);
 
@@ -43,15 +40,6 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
     return Array.from(s);
   }, [transactions]);
   const { prices: livePrices } = useLivePrices(allTickers);
-
-  // Fetch historical returns
-  useEffect(() => {
-    if (allTickers.length === 0) return;
-    fetch(`/api/returns?tickers=${allTickers.join(",")}`)
-      .then((r) => r.json())
-      .then((d) => setAssetReturns(d))
-      .catch(() => { });
-  }, [allTickers.join(",")]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const analysis = useMemo(() => {
     const assets: Record<string, { qty: number; totalCost: number; remainingBuys: { qty: number; cost: number; date: string }[] }> = {};
@@ -177,9 +165,13 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
 
   return (
     <div className="tab-content-enter" style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      <div>
-        <h2 style={{ color: "var(--text-primary)", fontSize: 24, fontWeight: 700 }}>Analytics & Stats</h2>
-        <p style={{ color: "var(--text-secondary)", fontSize: 14, marginTop: 4 }}>Portfolio performance, PnL breakdown, and equity curve.</p>
+      <div className="hidden sm:flex mb-8 sm:mb-10 flex-col gap-1.5">
+        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/50">
+          Analytics & Stats
+        </h2>
+        <p className="text-[var(--text-secondary)] text-sm sm:text-base max-w-2xl">
+          Portfolio performance, PnL breakdown, and equity curve.
+        </p>
       </div>
 
       {/* SCORECARDS */}
@@ -191,36 +183,19 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
       </div>
 
       {/* CHARTS */}
-      <div className="grid-two-col">
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>Performance Over Time</h3>
-          <div style={{ width: "100%", height: 340 }}>
+      <div className="card" style={{ padding: 24 }}>
+        <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>Profit / Loss by Asset</h3>
+        <div style={{ width: "100%", height: 340 }}>
+          {barData.length === 0 ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 13 }}>No holdings yet</div> : (
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={snapshots}>
-                <defs><linearGradient id="gradGreen" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#34d399" stopOpacity={0.3} /><stop offset="100%" stopColor="#34d399" stopOpacity={0} /></linearGradient></defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.06)" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: "#5a5a72", fontSize: 11 }} dy={8} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fill: "#5a5a72", fontSize: 11 }} dx={-8} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} />
-                <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 10, color: "var(--text-primary)", fontSize: 13 }} formatter={(value) => [formatUSD(value as number), "Portfolio"]} labelStyle={{ color: "var(--text-muted)", fontSize: 11 }} />
-                <Area type="monotone" dataKey="value" stroke="#34d399" strokeWidth={2.5} fill="url(#gradGreen)" dot={false} activeDot={{ r: 6, fill: "#34d399", stroke: "#0a0a0f", strokeWidth: 2 }} />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-        <div className="card" style={{ padding: 24 }}>
-          <h3 style={{ color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 20 }}>Profit / Loss by Asset</h3>
-          <div style={{ width: "100%", height: 340 }}>
-            {barData.length === 0 ? <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 13 }}>No holdings yet</div> : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barData} layout="vertical" barCategoryGap="20%">
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.06)" />
-                  <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#5a5a72", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
-                  <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#f0f0f5", fontSize: 13, fontWeight: 600 }} width={70} />
-                  <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 10, color: "var(--text-primary)", fontSize: 13 }} formatter={(value) => [formatUSD(value as number), "PnL"]} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
-                  <Bar dataKey="pnl" radius={[0, 6, 6, 0]}>{barData.map((entry, i) => (<Cell key={i} fill={entry.pnl >= 0 ? "#34d399" : "#f87171"} />))}</Bar>
-                </BarChart>
-              </ResponsiveContainer>)}
-          </div>
+              <BarChart data={barData} layout="vertical" barCategoryGap="20%">
+                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="rgba(255,255,255,0.06)" />
+                <XAxis type="number" axisLine={false} tickLine={false} tick={{ fill: "#5a5a72", fontSize: 11 }} tickFormatter={(v) => `$${v}`} />
+                <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{ fill: "#f0f0f5", fontSize: 13, fontWeight: 600 }} width={70} />
+                <Tooltip contentStyle={{ background: "var(--bg-elevated)", border: "1px solid var(--border-default)", borderRadius: 10, color: "var(--text-primary)", fontSize: 13 }} formatter={(value) => [formatUSD(value as number), "PnL"]} cursor={{ fill: "rgba(255,255,255,0.03)" }} />
+                <Bar dataKey="pnl" radius={[0, 6, 6, 0]}>{barData.map((entry, i) => (<Cell key={i} fill={entry.pnl >= 0 ? "#34d399" : "#f87171"} />))}</Bar>
+              </BarChart>
+            </ResponsiveContainer>)}
         </div>
       </div>
 
@@ -231,30 +206,36 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
         </div>
         {analysis.perAsset.length === 0 ? <div style={{ padding: 32, textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>No holdings. Add Buy transactions in the Ledger tab.</div> : (
         <div className="table-scroll">
-          <table className="mobile-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "PE", "Live Price", "PnL (%)", "PnL ($)", "1Y Return", "All-Time CAGR", "Pers. CAGR", "Value"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
-            <tbody>{analysis.perAsset.map((a) => {
-              const avgCost = a.qty > 0 ? a.cost / a.qty : 0;
-              const c = a.pnl >= 0 ? "var(--accent-green)" : "var(--accent-rose)";
-              const ret = assetReturns[a.ticker];
-              const r1y = ret?.return1y;
-              const pe = ret?.pe;
-              const cagrAsset = ret?.cagr;
-              const cagr = a.personalCagr;
-              return (<tr key={a.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
-                <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>{a.ticker}</td>
+          <table className="mobile-table stats-table" style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>{["Asset", "Qty", "Avg Cost", "Live Price", "PnL (%)", "PnL ($)", "Pers. CAGR", "Value"].map((h) => (<th key={h} style={{ padding: "10px 16px", textAlign: "left", color: "var(--text-muted)", fontSize: 11, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.05em" }}>{h}</th>))}</tr></thead>
+            <tbody>{(() => {
+              const uniqueCategories = Array.from(new Set(Object.values(categories))).sort();
+              const CATEGORY_PALETTES = ["#3b82f6", "#10b981", "#8b5cf6", "#f59e0b", "#f43f5e", "#06b6d4"];
+              return analysis.perAsset.map((a) => {
+                const avgCost = a.qty > 0 ? a.cost / a.qty : 0;
+                const c = a.pnl >= 0 ? "var(--accent-green)" : "var(--accent-rose)";
+                const cagr = a.personalCagr;
+                const category = categories[a.ticker] || "Uncategorized";
+                const catIdx = uniqueCategories.indexOf(category);
+                const badgeColor = catIdx >= 0 && category !== "Uncategorized" ? CATEGORY_PALETTES[catIdx % CATEGORY_PALETTES.length] : "var(--text-muted)";
+                
+                return (<tr key={a.ticker} style={{ borderBottom: "1px solid var(--border-subtle)", transition: "background 0.15s" }} onMouseEnter={(e) => e.currentTarget.style.background = "var(--bg-hover)"} onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}>
+                  <td data-label="Asset" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 600 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {a.ticker}
+                      <span style={{ fontSize: 10, padding: "2px 6px", background: category !== "Uncategorized" ? `${badgeColor}20` : "var(--bg-elevated)", borderRadius: 4, color: badgeColor, fontWeight: 600, border: category !== "Uncategorized" ? `1px solid ${badgeColor}40` : "1px solid var(--border-subtle)" }}>{category}</span>
+                    </div>
+                  </td>
                 <td data-label="Qty" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{a.qty.toFixed(4)}</td>
                 <td data-label="Avg Cost" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(avgCost)}</td>
-                <td data-label="PE" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{pe !== null && pe !== undefined ? pe.toFixed(1) : "—"}</td>
                 <td data-label="Live Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.livePrice || 0)}</td>
                 <td data-label="PnL (%)" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnlPct >= 0 ? "+" : ""}{a.pnlPct.toFixed(2)}%</td>
                 <td data-label="PnL ($)" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: c }}>{a.pnl >= 0 ? "+" : ""}{formatUSD(a.pnl)}</td>
-                <td data-label="1Y Return" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: r1y !== null && r1y !== undefined ? (r1y >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{r1y !== null && r1y !== undefined ? `${r1y >= 0 ? "+" : ""}${r1y.toFixed(1)}%` : "—"}</td>
-                <td data-label="All-Time CAGR" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagrAsset !== null && cagrAsset !== undefined ? (cagrAsset >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagrAsset !== null && cagrAsset !== undefined ? `${cagrAsset >= 0 ? "+" : ""}${cagrAsset.toFixed(1)}%/yr` : "—"}</td>
                 <td data-label="Pers. CAGR" style={{ padding: "10px 16px", fontWeight: 600, fontVariantNumeric: "tabular-nums", color: cagr !== null && cagr !== undefined ? (cagr >= 0 ? "var(--accent-green)" : "var(--accent-rose)") : "var(--text-muted)" }}>{cagr !== null && cagr !== undefined ? `${cagr >= 0 ? "+" : ""}${cagr.toFixed(1)}%/yr` : "—"}</td>
                 <td data-label="Value" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(a.currentValue)}</td>
               </tr>);
-            })}</tbody>
+              });
+            })()}</tbody>
           </table>
         </div>)}
       </div>

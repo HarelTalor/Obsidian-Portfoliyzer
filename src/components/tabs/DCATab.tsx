@@ -187,9 +187,13 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
 
   return (
     <div className="tab-content-enter" style={{ display: "flex", flexDirection: "column", gap: 28 }}>
-      <div>
-        <h2 style={{ color: "var(--text-primary)", fontSize: 24, fontWeight: 700 }}>Smart DCA</h2>
-        <p style={{ color: "var(--text-secondary)", fontSize: 14, marginTop: 4 }}>Configure your monthly investment strategy and deploy smart recommendations.</p>
+      <div className="hidden sm:flex mb-8 sm:mb-10 flex-col gap-1.5">
+        <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-white to-white/50">
+          Smart DCA
+        </h2>
+        <p className="text-[var(--text-secondary)] text-sm sm:text-base max-w-2xl">
+          Configure your monthly investment strategy and deploy smart recommendations.
+        </p>
       </div>
 
       {error && <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "12px 16px", background: "var(--accent-rose-dim)", borderRadius: 10, color: "var(--accent-rose)", fontSize: 13 }}><AlertTriangle size={16} />{error}<button onClick={() => setError(null)} style={{ marginLeft: "auto", background: "none", border: "none", color: "var(--accent-rose)", cursor: "pointer" }}>✕</button></div>}
