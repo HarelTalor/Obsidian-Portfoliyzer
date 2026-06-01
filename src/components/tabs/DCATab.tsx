@@ -11,6 +11,20 @@ interface TargetAllocation { asset_ticker: string; target_percentage: number; }
 
 function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n); }
 
+/** Convert a local "HH:MM" string to UTC "HH:MM" using the browser's timezone offset. */
+function localTimeToUtc(local: string): string {
+  const [h, m] = local.split(":").map(Number);
+  const totalUtc = ((h * 60 + m + new Date().getTimezoneOffset()) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(totalUtc / 60)).padStart(2, "0")}:${String(totalUtc % 60).padStart(2, "0")}`;
+}
+
+/** Convert a UTC "HH:MM" string to local "HH:MM" using the browser's timezone offset. */
+function utcTimeToLocal(utc: string): string {
+  const [h, m] = utc.split(":").map(Number);
+  const totalLocal = ((h * 60 + m - new Date().getTimezoneOffset()) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(totalLocal / 60)).padStart(2, "0")}:${String(totalLocal % 60).padStart(2, "0")}`;
+}
+
 export default function DCATab({ userId, userEmail }: { userId: string; userEmail: string }) {
   const [transactions, setTransactions] = useState<TransactionRow[]>([]);
   const [targets, setTargets] = useState<TargetAllocation[]>([]);
@@ -42,7 +56,7 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
       setDcaBudget(Number(userRes.data.monthly_dca_budget) || 1000);
       setAlertEnabled(userRes.data.alert_enabled ?? false);
       setAlertDay(userRes.data.alert_day ?? 1);
-      setAlertTime(userRes.data.alert_time ?? "09:00");
+      setAlertTime(utcTimeToLocal(userRes.data.alert_time ?? "09:00"));
     }
     setLoading(false);
   }, [userId]);
@@ -142,9 +156,10 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
   }, [portfolioAnalysis, holdings.cash, totalAssetValue]);
 
   // Save alert settings
-  const saveAlertSettings = async (enabled: boolean, day: number, time: string) => {
+  const saveAlertSettings = async (enabled: boolean, day: number, localTime: string) => {
     setAlertSaving(true);
-    await supabase.from("users").update({ alert_enabled: enabled, alert_day: day, alert_time: time }).eq("id", userId);
+    const utcTime = localTimeToUtc(localTime);
+    await supabase.from("users").update({ alert_enabled: enabled, alert_day: day, alert_time: utcTime }).eq("id", userId);
     setAlertSaving(false);
   };
 

@@ -5,7 +5,7 @@ import YahooFinance from "yahoo-finance2";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 const resend = new Resend(process.env.RESEND_API_KEY);
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -70,7 +70,7 @@ export async function GET(req: NextRequest) {
 
       // 1. Auto-deposit the monthly budget as a Deposit transaction
       if (dcaBudget > 0) {
-        await supabase.from("transactions").insert([{
+        const { error: depositErr } = await supabase.from("transactions").insert([{
           user_id: userId,
           date: now.toISOString().split("T")[0],
           type: "Deposit",
@@ -78,6 +78,9 @@ export async function GET(req: NextRequest) {
           quantity: null,
           price: dcaBudget,
         }]);
+        if (depositErr) {
+          console.error(`Failed to insert deposit for user ${userId}:`, depositErr.message);
+        }
       }
 
       // 2. Fetch all transactions (chronological) to compute holdings + cash
@@ -233,10 +236,9 @@ export async function GET(req: NextRequest) {
 
       results.push({ userId, status: emailErr ? `email error: ${emailErr.message}` : "sent" });
 
-      // Mark this month as sent to prevent duplicates
-      if (!emailErr) {
-        await supabase.from("users").update({ last_alert_sent: currentMonth }).eq("id", userId);
-      }
+      // Mark this month as sent to prevent duplicate deposits — always set this
+      // even if the email failed, since the deposit was already created.
+      await supabase.from("users").update({ last_alert_sent: currentMonth }).eq("id", userId);
 
     } catch (err) {
       results.push({ userId: user.id, status: `error: ${err instanceof Error ? err.message : "unknown"}` });
