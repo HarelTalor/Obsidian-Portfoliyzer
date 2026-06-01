@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import YahooFinance from "yahoo-finance2";
+import { calculateHoldings } from "@/lib/portfolio";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,13 +15,11 @@ function formatUSD(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }
 
-// Security: verify the request comes from Vercel Cron or an authorized source
 function isAuthorized(req: NextRequest): boolean {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
+  // In production, require CRON_SECRET
   if (cronSecret && authHeader === `Bearer ${cronSecret}`) return true;
-  // Allow Vercel cron (no secret needed on Vercel)
-  if (req.headers.get("x-vercel-cron")) return true;
   // Allow manual trigger in development
   if (process.env.NODE_ENV === "development") return true;
   return false;
@@ -47,17 +46,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ message: "No alerts to send today", day: dayOfMonth, hour: currentHour });
   }
 
-  // Filter by alert_time hour match and skip already-sent this month
+  // Filter by already-sent this month (time is ignored, daily run)
   const eligibleUsers = users.filter((u) => {
     // Check if already sent this month
     if (u.last_alert_sent === currentMonth) return false;
-    // Check if the hour matches (alert_time is "HH:MM")
-    const alertHour = parseInt((u.alert_time || "09:00").split(":")[0], 10);
-    return alertHour === currentHour;
+    return true;
   });
 
   if (eligibleUsers.length === 0) {
-    return NextResponse.json({ message: "No alerts due this hour", day: dayOfMonth, hour: currentHour, checked: users.length });
+    return NextResponse.json({ message: "No alerts due", day: dayOfMonth, checked: users.length });
   }
 
   const results: { userId: string; status: string }[] = [];
@@ -93,38 +90,14 @@ export async function GET(req: NextRequest) {
 
       const transactions = (txData || []).map((d) => ({
         type: d.type as string,
+        date: d.date as string,
         asset_ticker: (d.asset_ticker || "") as string,
         quantity: Number(d.quantity) || 0,
         price: Number(d.price) || 0,
       }));
 
       // Compute holdings
-      const assets: Record<string, { qty: number; totalCost: number }> = {};
-      let cash = 0;
-      for (const tx of transactions) {
-        switch (tx.type) {
-          case "Deposit": cash += tx.price; break;
-          case "Withdrawal": cash -= tx.price; break;
-          case "Dividend": cash += tx.price; break;
-          case "Buy": {
-            if (!assets[tx.asset_ticker]) assets[tx.asset_ticker] = { qty: 0, totalCost: 0 };
-            assets[tx.asset_ticker].qty += tx.quantity;
-            assets[tx.asset_ticker].totalCost += tx.quantity * tx.price;
-            const cost = tx.quantity * tx.price;
-            if (cash >= cost) { cash -= cost; } else { cash = 0; }
-            break;
-          }
-          case "Sell": {
-            if (assets[tx.asset_ticker]) {
-              const avg = assets[tx.asset_ticker].totalCost / assets[tx.asset_ticker].qty;
-              assets[tx.asset_ticker].qty -= tx.quantity;
-              assets[tx.asset_ticker].totalCost = assets[tx.asset_ticker].qty * avg;
-            }
-            cash += tx.quantity * tx.price;
-            break;
-          }
-        }
-      }
+      const { assets, cash } = calculateHoldings(transactions);
 
       // 3. Fetch targets
       const { data: targetData } = await supabase

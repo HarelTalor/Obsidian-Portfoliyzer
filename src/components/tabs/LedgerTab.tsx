@@ -5,6 +5,7 @@ import { Plus, ArrowUpCircle, ArrowDownCircle, Banknote, LogOut, Coins, Trash2, 
 import type { TransactionType } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
 import { useLivePrices } from "@/lib/use-live-prices";
+import { calculateHoldings } from "@/lib/portfolio";
 
 interface TransactionRow { id: string; date: string; type: TransactionType; asset_ticker: string; quantity: number; price: number; }
 interface TargetAllocation { asset_ticker: string; target_percentage: number; category?: string; }
@@ -53,36 +54,9 @@ export default function LedgerTab({ userId }: { userId: string }) {
 
   // Holdings computed from transactions
   const holdings = useMemo(() => {
-    const h: Record<string, { qty: number; totalCost: number }> = {};
-    let cash = 0;
     const chronologicalTxs = [...transactions].reverse();
-    for (const tx of chronologicalTxs) {
-      switch (tx.type) {
-        case "Deposit": cash += tx.price; break;
-        case "Withdrawal": cash -= tx.price; break;
-        case "Dividend": cash += tx.price; break;
-        case "Buy":
-          if (!h[tx.asset_ticker]) h[tx.asset_ticker] = { qty: 0, totalCost: 0 };
-          h[tx.asset_ticker].qty += tx.quantity;
-          h[tx.asset_ticker].totalCost += tx.quantity * tx.price;
-          const cost = tx.quantity * tx.price;
-          if (cash >= cost) {
-            cash -= cost;
-          } else {
-            cash = 0;
-          }
-          break;
-        case "Sell":
-          if (h[tx.asset_ticker]) {
-            const avg = h[tx.asset_ticker].totalCost / h[tx.asset_ticker].qty;
-            h[tx.asset_ticker].qty -= tx.quantity;
-            h[tx.asset_ticker].totalCost = h[tx.asset_ticker].qty * avg;
-          }
-          cash += tx.quantity * tx.price;
-          break;
-      }
-    }
-    return { assets: h, cash };
+    const { assets, cash } = calculateHoldings(chronologicalTxs);
+    return { assets, cash };
   }, [transactions]);
 
   // Live prices from Yahoo Finance
@@ -162,7 +136,8 @@ export default function LedgerTab({ userId }: { userId: string }) {
     await loadData();
   };
 
-  const removeTransaction = async (id: string) => {
+  const handleDelete = async (id: string) => {
+    if (!window.confirm("Are you sure you want to delete this transaction? This will affect your portfolio cost basis and cash balance.")) return;
     const { error: err } = await supabase.from("transactions").delete().eq("id", id);
     if (err) { setError(err.message); return; }
     setTransactions((p) => p.filter((t) => t.id !== id));
@@ -281,7 +256,7 @@ export default function LedgerTab({ userId }: { userId: string }) {
                     <td data-label="Qty" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }} className={isCash ? "hide-on-mobile" : ""}>{isCash ? "—" : tx.quantity}</td>
                     <td data-label="Price" style={{ padding: "10px 16px", color: "var(--text-secondary)", fontVariantNumeric: "tabular-nums" }} className={isCash ? "hide-on-mobile" : ""}>{formatUSD(tx.price)}</td>
                     <td data-label="Total" style={{ padding: "10px 16px", color: "var(--text-primary)", fontWeight: 500, fontVariantNumeric: "tabular-nums" }}>{formatUSD(total)}</td>
-                    <td data-label="Action" style={{ padding: "10px 16px" }}><button onClick={() => removeTransaction(tx.id)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, borderRadius: 6 }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-rose)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}><Trash2 size={14} /></button></td>
+                    <td data-label="Action" style={{ padding: "10px 16px" }}><button onClick={() => handleDelete(tx.id)} style={{ background: "transparent", border: "none", color: "var(--text-muted)", cursor: "pointer", padding: 4, borderRadius: 6 }} onMouseEnter={(e) => e.currentTarget.style.color = "var(--accent-rose)"} onMouseLeave={(e) => e.currentTarget.style.color = "var(--text-muted)"}><Trash2 size={14} /></button></td>
                   </tr>);
                 });
               })()}

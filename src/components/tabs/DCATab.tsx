@@ -5,6 +5,7 @@ import { Zap, TrendingUp, AlertTriangle, Loader2, Mail, CheckCircle2, Bell, Bell
 import type { TransactionType } from "@/lib/database.types";
 import { supabase } from "@/lib/supabase";
 import { useLivePrices } from "@/lib/use-live-prices";
+import { calculateHoldings } from "@/lib/portfolio";
 
 interface TransactionRow { id: string; date: string; type: TransactionType; asset_ticker: string; quantity: number; price: number; }
 interface TargetAllocation { asset_ticker: string; target_percentage: number; }
@@ -65,36 +66,9 @@ export default function DCATab({ userId, userEmail }: { userId: string; userEmai
 
   // Holdings computed from transactions
   const holdings = useMemo(() => {
-    const h: Record<string, { qty: number; totalCost: number }> = {};
-    let cash = 0;
     const chronologicalTxs = [...transactions].reverse();
-    for (const tx of chronologicalTxs) {
-      switch (tx.type) {
-        case "Deposit": cash += tx.price; break;
-        case "Withdrawal": cash -= tx.price; break;
-        case "Dividend": cash += tx.price; break;
-        case "Buy":
-          if (!h[tx.asset_ticker]) h[tx.asset_ticker] = { qty: 0, totalCost: 0 };
-          h[tx.asset_ticker].qty += tx.quantity;
-          h[tx.asset_ticker].totalCost += tx.quantity * tx.price;
-          const cost = tx.quantity * tx.price;
-          if (cash >= cost) {
-            cash -= cost;
-          } else {
-            cash = 0;
-          }
-          break;
-        case "Sell":
-          if (h[tx.asset_ticker]) {
-            const avg = h[tx.asset_ticker].totalCost / h[tx.asset_ticker].qty;
-            h[tx.asset_ticker].qty -= tx.quantity;
-            h[tx.asset_ticker].totalCost = h[tx.asset_ticker].qty * avg;
-          }
-          cash += tx.quantity * tx.price;
-          break;
-      }
-    }
-    return { assets: h, cash };
+    const { assets, cash } = calculateHoldings(chronologicalTxs);
+    return { assets, cash };
   }, [transactions]);
 
   // Live prices from Yahoo Finance

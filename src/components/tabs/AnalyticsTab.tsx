@@ -6,6 +6,7 @@ import { DollarSign, TrendingUp, TrendingDown, Wallet, Activity, Loader2 } from 
 import { supabase } from "@/lib/supabase";
 import { useLivePrices } from "@/lib/use-live-prices";
 import type { TransactionType } from "@/lib/database.types";
+import { calculateHoldings } from "@/lib/portfolio";
 
 function formatUSD(n: number) { return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(n); }
 
@@ -42,65 +43,7 @@ export default function AnalyticsTab({ userId }: { userId: string }) {
   const { prices: livePrices } = useLivePrices(allTickers);
 
   const analysis = useMemo(() => {
-    const assets: Record<string, { qty: number; totalCost: number; remainingBuys: { qty: number; cost: number; date: string }[] }> = {};
-    const cashflows: { amount: number; date: string }[] = [];
-    let cash = 0, totalDeposits = 0, totalWithdrawals = 0;
-    
-    for (const tx of transactions) {
-      switch (tx.type) {
-        case "Deposit": 
-          cash += tx.price; 
-          totalDeposits += tx.price; 
-          cashflows.push({ amount: tx.price, date: tx.date });
-          break;
-        case "Withdrawal": 
-          cash -= tx.price; 
-          totalWithdrawals += tx.price; 
-          cashflows.push({ amount: -tx.price, date: tx.date });
-          break;
-        case "Dividend": 
-          cash += tx.price; 
-          break;
-        case "Buy":
-          if (!assets[tx.asset_ticker]) assets[tx.asset_ticker] = { qty: 0, totalCost: 0, remainingBuys: [] };
-          assets[tx.asset_ticker].qty += tx.quantity;
-          assets[tx.asset_ticker].totalCost += tx.quantity * tx.price;
-          assets[tx.asset_ticker].remainingBuys.push({ qty: tx.quantity, cost: tx.quantity * tx.price, date: tx.date });
-          
-          const cost = tx.quantity * tx.price;
-          if (cash >= cost) {
-            cash -= cost;
-          } else {
-            const implicitDeposit = cost - cash;
-            totalDeposits += implicitDeposit;
-            cashflows.push({ amount: implicitDeposit, date: tx.date });
-            cash = 0;
-          }
-          break;
-        case "Sell":
-          if (assets[tx.asset_ticker]) { 
-            const avg = assets[tx.asset_ticker].totalCost / assets[tx.asset_ticker].qty; 
-            assets[tx.asset_ticker].qty -= tx.quantity; 
-            assets[tx.asset_ticker].totalCost = assets[tx.asset_ticker].qty * avg; 
-            
-            let qtyToSell = tx.quantity;
-            const rb = assets[tx.asset_ticker].remainingBuys;
-            while (qtyToSell > 0 && rb.length > 0) {
-              if (rb[0].qty <= qtyToSell) {
-                qtyToSell -= rb[0].qty;
-                rb.shift();
-              } else {
-                const ratio = qtyToSell / rb[0].qty;
-                rb[0].qty -= qtyToSell;
-                rb[0].cost -= rb[0].cost * ratio;
-                qtyToSell = 0;
-              }
-            }
-          }
-          cash += tx.quantity * tx.price; 
-          break;
-      }
-    }
+    const { assets, cash, totalDeposits, totalWithdrawals, cashflows } = calculateHoldings(transactions);
     
     const nowMs = new Date().getTime();
     

@@ -60,7 +60,11 @@ export default function StrategyTab({ userId }: { userId: string }) {
 
   // Derived
   const totalPercentage = useMemo(() => targets.reduce((s, t) => s + (t.target_percentage || 0), 0), [targets]);
-  const isValid = totalPercentage === 100 && targets.every((t) => t.asset_ticker.trim() !== "");
+  const hasDuplicates = useMemo(() => {
+    const tickers = targets.map(t => t.asset_ticker.trim().toUpperCase()).filter(t => t !== "");
+    return new Set(tickers).size !== tickers.length;
+  }, [targets]);
+  const isValid = totalPercentage === 100 && targets.every((t) => t.asset_ticker.trim() !== "") && !hasDuplicates;
   const isOver = totalPercentage > 100;
   const remaining = 100 - totalPercentage;
   const barColor = isOver ? "var(--accent-rose)" : totalPercentage === 100 ? "var(--accent-green)" : "var(--accent-amber)";
@@ -222,6 +226,11 @@ export default function StrategyTab({ userId }: { userId: string }) {
             {isOver && (
               <div className="mt-5 flex items-center justify-center gap-2 text-[var(--accent-rose)] text-xs font-semibold bg-[var(--accent-rose-dim)] py-2.5 px-4 rounded-lg animate-pulse">
                 <AlertCircle size={15} /> Total exceeds 100% by {(totalPercentage - 100).toFixed(1)}%
+              </div>
+            )}
+            {hasDuplicates && (
+              <div className="mt-2 flex items-center justify-center gap-2 text-[var(--accent-rose)] text-xs font-semibold bg-[var(--accent-rose-dim)] py-2.5 px-4 rounded-lg">
+                <AlertCircle size={15} /> Duplicate tickers found
               </div>
             )}
 

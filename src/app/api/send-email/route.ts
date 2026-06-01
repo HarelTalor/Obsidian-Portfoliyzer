@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createServerClient } from "@/lib/supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -12,6 +13,13 @@ export async function POST(req: NextRequest) {
         { error: "Missing required fields: to, subject, html" },
         { status: 400 }
       );
+    }
+
+    // Verify user is logged in
+    const supabase = createServerClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const { data, error } = await resend.emails.send({
